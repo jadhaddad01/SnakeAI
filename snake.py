@@ -31,11 +31,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # Import libraries
 # -----------------------------------------------------------------------------
 # Public Libraries
+import math
 import pygame
 import neat
 import time
 import os
 import random
+from random import choice
 import pygame_menu
 import pickle
 from PIL import Image
@@ -51,12 +53,13 @@ pygame.font.init()
 # -----------------------------------------------------------------------------
 # Constants and global variables
 # -----------------------------------------------------------------------------
-WIN_WIDTH = 600
-WIN_HEIGHT = 600
+WIN_WIDTH = 800
+GAME_WIN_WIDTH = 600
+GAME_WIN_HEIGHT = 600
 FPS = 30
 
 # Load Window and Menu Button
-win = UI.Window(WIN_WIDTH, WIN_HEIGHT)
+win = UI.Window(WIN_WIDTH, GAME_WIN_HEIGHT)
 button2 = UI.Button(
     x = WIN_WIDTH - 10 - 120, # Top right under score count (SEE DISPLAY FUNCTIONS)
     y = 50, 
@@ -125,11 +128,11 @@ class Snake:
 		if self.direction == "Up":
 			self.y[0] = self.y[0] - self.VEL
 
-		# if not self.y == WIN_HEIGHT - 30 and self.direction == "Down":
+		# if not self.y == GAME_WIN_HEIGHT - 30 and self.direction == "Down":
 		if self.direction == "Down":
 			self.y[0] = self.y[0] + self.VEL
 
-		# if not self.x == WIN_WIDTH - 30 and self.direction == "Right":
+		# if not self.x == GAME_WIN_WIDTH - 30 and self.direction == "Right":
 		if self.direction == "Right":
 			self.x[0] = self.x[0] + self.VEL
 
@@ -139,7 +142,11 @@ class Snake:
 			
 
 	def wall_collision(self):
-		if self.y[0] < 0 or self.y[0] == WIN_HEIGHT or self.x[0] < 0 or self.x[0]  == WIN_WIDTH:
+		if self.y[0] < 0 or self.y[0] == GAME_WIN_HEIGHT or self.x[0] < 0 or self.x[0]  == GAME_WIN_WIDTH:
+			return True
+
+		# Accounting The Line
+		elif self.x[0] == GAME_WIN_WIDTH - 15 and self.direction == "Right":
 			return True
 		return False
 
@@ -154,8 +161,11 @@ class Snake:
 	def get_last_block(self):
 		return (self.x[len(self.x) - 1], self.y[len(self.y) - 1])
 
-	def get_coord(self):
+	def get_coord_head(self):
 		return (self.x[0], self.y[0])
+
+	def get_body(self):
+		return (self.x, self.y)
 
 	def add_block(self, xadd, yadd):
 		self.x.append(xadd)
@@ -168,18 +178,38 @@ class Snake:
 class Food:
 
 	def __init__(self):
-		self.x = random.randrange(0, WIN_WIDTH / 30) * 30 # We want everything to be in the same "grid"
-		self.y = random.randrange(0, WIN_HEIGHT / 30) * 30
+		self.x = random.randrange(0, GAME_WIN_WIDTH / 30) * 30 # We want everything to be in the same "grid"
+		self.y = random.randrange(0, GAME_WIN_HEIGHT / 30) * 30
 
-	def new(self):
-		self.x = random.randrange(0, WIN_WIDTH / 30) * 30
-		self.y = random.randrange(0, WIN_HEIGHT / 30) * 30
+	def new(self, snake):
+		self.x = random.randrange(0, GAME_WIN_WIDTH / 30) * 30
+		self.y = random.randrange(0, GAME_WIN_HEIGHT / 30) * 30
+
+		# Check if not in same position as snake body
+		tmp = []
+		# Make Snake Body 2D Array
+		(xbody, ybody) = snake.get_body()
+		for n in range(len(xbody)):
+			tmp.append([xbody[n], ybody[n]])
+		# Add food in array and check if two coordinates are the same
+		tmp.append([self.x, self.y])
+		# If two coordinates are the same we make new food again
+		if not len([list(i) for i in set(map(tuple, tmp))]) == len(tmp):
+			new(snake)
 
 	def eaten(self, snake):
-		(snakex, snakey) = snake.get_coord()
+		(snakex, snakey) = snake.get_coord_head()
 		if self.x == snakex and self.y == snakey:
 			return True
 		return False
+
+	def distance_to_food(self, snake):
+		(headx, heady) = snake.get_coord_head()
+
+		x = (self.x - headx) ** 2
+		y = (self.y - heady) ** 2
+
+		return math.sqrt(x + y)
 
 	def draw(self, win):
 		pygame.draw.rect(win, (255,0,0), (self.x, self.y, 30, 30))
@@ -198,7 +228,10 @@ def draw_window_human(win, snake, food, score, pregame):
 	win.fill((0,0,0))
 
 	snake.draw(win)
+
 	food.draw(win)
+
+	pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
 
 	# Draw Current Score
 	text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
@@ -206,14 +239,14 @@ def draw_window_human(win, snake, food, score, pregame):
 
 	if pregame:
 		# Draw Transparency Over Game
-		transparency_size = (WIN_WIDTH, WIN_HEIGHT)
+		transparency_size = (WIN_WIDTH, GAME_WIN_HEIGHT)
 		transparency = pygame.Surface(transparency_size)
 		transparency.set_alpha(150)
 		win.blit(transparency, (0,0))
 
 		# Main Text
 		text = STAT_FONT_BIG.render("Press Arrow Key", 1, (255, 255, 255))
-		win.blit(text, (WIN_WIDTH/2- text.get_width()/2, WIN_HEIGHT/2 - text.get_height()))
+		win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 - text.get_height()))
 
 	# Return To Menu if Menu Button Pressed
 	if button2.update():
@@ -234,10 +267,10 @@ def main_human():
 	global block_count
 
 	# Set Variables
-	snake = Snake(450, 450)
+	snake = Snake(GAME_WIN_WIDTH / 2, GAME_WIN_HEIGHT / 2)
 	food = Food()
 
-	win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
+	win = pygame.display.set_mode((WIN_WIDTH, GAME_WIN_HEIGHT))
 	clock = pygame.time.Clock()
 
 	score = 0
@@ -317,7 +350,7 @@ def main_human():
 			(xsaved, ysaved) = snake.get_last_block()
 			block_count += 1
 
-			food.new()
+			food.new(snake)
 
 		# -------------------------------------------------------------------------
 		# Draw To Screen
@@ -342,7 +375,7 @@ def menu():
 	# Create menus: Main menu
 	# -------------------------------------------------------------------------
 	menu = pygame_menu.Menu(
-		WIN_HEIGHT, 
+		GAME_WIN_HEIGHT, 
 		WIN_WIDTH, 
 		'Snake', 
 		theme=menu_theme, 
