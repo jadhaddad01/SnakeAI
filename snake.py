@@ -142,12 +142,9 @@ class Snake:
 			
 
 	def wall_collision(self):
-		if self.y[0] < 0 or self.y[0] == GAME_WIN_HEIGHT or self.x[0] < 0 or self.x[0]  == GAME_WIN_WIDTH:
+		if self.y[0] < 0 or (self.y[0] == GAME_WIN_HEIGHT - 15 and self.direction == "Down") or self.x[0] < 0 or (self.x[0] == GAME_WIN_WIDTH - 15 and self.direction == "Right"):
 			return True
 
-		# Accounting The Line
-		elif self.x[0] == GAME_WIN_WIDTH - 15 and self.direction == "Right":
-			return True
 		return False
 
 	def snake_collision(self):
@@ -171,6 +168,48 @@ class Snake:
 		self.x.append(xadd)
 		self.y.append(yadd)
 
+	def dis_to_snake_or_wall(self):
+		left = 0
+		right = 0
+		top = 0
+		bottom = 0
+
+		# we want closest block not farthest
+		leftflag = True
+		rightflag = True
+		topflag = True
+		bottomflag = True
+
+		# Snake
+		for n in range(1, len(self.x)): # Don't include head
+			if self.y[n] == self.y[0]:
+				if self.x[n] < self.x[0] and leftflag:
+					left = self.x[0] - self.x[n]
+					leftflag = False
+				if self.x[n] > self.x[0] and rightflag:
+					right = self.x[n] - self.x[0]
+					rightflag = False
+
+			if self.x[n] == self.x[0]:
+				if self.y[n] < self.y[0] and bottomflag:
+					bottom = self.y[0] - self.y[n]
+					bottomflag = False
+				if self.y[n] > self.y[0] and topflag:
+					top = self.y[n] - self.y[0]
+					topflag = False
+
+		# Wall IF NO SNAKE
+		if left == 0:
+			left = self.x[0]
+		if right == 0:
+			right = GAME_WIN_WIDTH - self.x[0]
+		if top == 0:
+			top = self.y[0]
+		if bottom == 0:
+			bottom = GAME_WIN_HEIGHT - self.y[0]
+
+		return (right, left, bottom, top)
+
 	def draw(self, win):
 		for n in range(len(self.x)): # x has same length as y
 			pygame.draw.rect(win, (255,255,255), (self.x[n], self.y[n], 30, 30))
@@ -182,20 +221,23 @@ class Food:
 		self.y = random.randrange(0, GAME_WIN_HEIGHT / 30) * 30
 
 	def new(self, snake):
-		self.x = random.randrange(0, GAME_WIN_WIDTH / 30) * 30
-		self.y = random.randrange(0, GAME_WIN_HEIGHT / 30) * 30
 
-		# Check if not in same position as snake body
-		tmp = []
-		# Make Snake Body 2D Array
-		(xbody, ybody) = snake.get_body()
-		for n in range(len(xbody)):
-			tmp.append([xbody[n], ybody[n]])
-		# Add food in array and check if two coordinates are the same
-		tmp.append([self.x, self.y])
-		# If two coordinates are the same we make new food again
-		if not len([list(i) for i in set(map(tuple, tmp))]) == len(tmp):
-			new(snake)
+		not_satisfied = True
+		while not_satisfied:
+			self.x = random.randrange(0, GAME_WIN_WIDTH / 30) * 30
+			self.y = random.randrange(0, GAME_WIN_HEIGHT / 30) * 30
+
+			# Check if not in same position as snake body
+			tmp = []
+			# Make Snake Body 2D Array
+			(xbody, ybody) = snake.get_body()
+			for n in range(len(xbody)):
+				tmp.append([xbody[n], ybody[n]])
+			# Add food in array and check if two coordinates are the same
+			tmp.append([self.x, self.y])
+			# If two coordinates are the same we make new food again
+			if len([list(i) for i in set(map(tuple, tmp))]) == len(tmp):
+				not_satisfied = False
 
 	def eaten(self, snake):
 		(snakex, snakey) = snake.get_coord_head()
@@ -270,7 +312,7 @@ def main_human():
 	snake = Snake(GAME_WIN_WIDTH / 2, GAME_WIN_HEIGHT / 2)
 	food = Food()
 
-	win = pygame.display.set_mode((WIN_WIDTH, GAME_WIN_HEIGHT))
+	# win = pygame.display.set_mode((WIN_WIDTH, GAME_WIN_HEIGHT))
 	clock = pygame.time.Clock()
 
 	score = 0
@@ -357,6 +399,200 @@ def main_human():
 		# -------------------------------------------------------------------------
 		draw_window_human(win, snake, food, score, False)
 
+def draw_window_ai(win, snake, food, score, pregame):
+	"""
+	Draw game using given parameters (Human Game)
+	Can draw both pregame and main game
+
+	:return: None
+	"""
+	win.fill((0,0,0))
+
+	snake.draw(win)
+
+	food.draw(win)
+
+	pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
+
+	# Draw Current Score
+	text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
+	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+
+	if pregame:
+		# Draw Transparency Over Game
+		transparency_size = (WIN_WIDTH, GAME_WIN_HEIGHT)
+		transparency = pygame.Surface(transparency_size)
+		transparency.set_alpha(150)
+		win.blit(transparency, (0,0))
+
+		# Main Text
+		text = STAT_FONT_BIG.render("Press Arrow Key", 1, (255, 255, 255))
+		win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 - text.get_height()))
+
+	# Return To Menu if Menu Button Pressed
+	if button2.update():
+		menu()
+
+	# Update the Current Display
+	pygame.display.update()
+
+def main_ai(genomes, config):
+	"""
+	Play game for user
+
+	:return: None
+	"""
+
+	# Global Variables
+	global FPS
+	global block_count
+	global gen
+
+
+	ge = genomes[0][1]
+	net = neat.nn.FeedForwardNetwork.create(ge, config)
+	ge.fitness = 0
+
+	# Fix second genome error
+	genomes[1][1].fitness = 0
+
+	# Set Variables
+	snake = Snake(GAME_WIN_WIDTH / 2, GAME_WIN_HEIGHT / 2)
+	food = Food()
+
+	current_time = time.time()
+
+	# win = pygame.display.set_mode((WIN_WIDTH, GAME_WIN_HEIGHT))
+	clock = pygame.time.Clock()
+
+	score = 0
+	gen += 1
+
+	# -------------------------------------------------------------------------
+	# Game: Main Game
+	# -------------------------------------------------------------------------
+	run = True
+	while run:
+		clock.tick(FPS)
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				run = False
+				pygame.quit()
+				quit()
+
+		(headx, heady) = snake.get_coord_head()
+		food_distance = food.distance_to_food(snake)
+		
+		# SubInp: Distance to Snake OR Wall (What's Closest)
+		(right, left, down, up) = snake.dis_to_snake_or_wall()
+
+		# Inputs: Headx, Heady, Distance to Food, Subinp1, Subinp2
+		outputs = net.activate((headx, heady, food_distance, right, left, down, up))
+
+		# Go Right / Left / Up / Down
+		if outputs[0] > 0.5:
+			snake.move_right()
+		if outputs[1] > 0.5:
+			snake.move_left()
+		if outputs[2] > 0.5:
+			snake.move_down()
+		if outputs[3] > 0.5:
+			snake.move_up()
+
+		# Move To Wanted Direction
+		snake.move()
+
+		if block_count == 1:
+			block_count += 1
+
+		if block_count == 2:
+			snake.add_block(xsaved, ysaved)
+			block_count = 0
+
+		if snake.wall_collision() or snake.snake_collision():
+			ge.fitness -= 2
+			run = False
+			break
+
+		# We don't want the snake to go in loops
+		if time.time() - current_time >= 10:
+			 ge.fitness -= 2
+			 run = False
+			 break
+
+		if food.eaten(snake):
+			score += 1
+			ge.fitness += 2
+			
+			# Create Extra Block Snake
+			(xsaved, ysaved) = snake.get_last_block()
+			block_count += 1
+
+			current_time = time.time() # Reset timer
+
+			food.new(snake)
+
+		# -------------------------------------------------------------------------
+		# Draw To Screen
+		# -------------------------------------------------------------------------
+		draw_window_human(win, snake, food, score, False)
+
+def run(config_path):
+	"""
+	Use given configuration path and variables to start teaching the AI to play the game
+	Then visualize the data with the genome containing highest fitness
+
+	:param config_path: path to the neural 
+	:type config_path: int / range[0 -> 99]
+
+	:return: None
+	"""
+
+	global gen
+
+	# -------------------------------------------------------------------------
+	# Load Configuration
+	# -------------------------------------------------------------------------
+	config = neat.config.Config(
+		neat.DefaultGenome,
+		neat.DefaultReproduction,
+		neat.DefaultSpeciesSet,
+		neat.DefaultStagnation,
+		config_path
+	)
+
+	# Create Population
+	p = neat.Population(config)
+
+	# Add StdOut Reporter (Displays Progress in Terminal)
+	p.add_reporter(neat.StdOutReporter(True))
+	stats = neat.StatisticsReporter()
+	p.add_reporter(stats)
+
+	# Run Up to [Gen. Option] Generations
+	winner = p.run(main_ai, 1000) # We Save Best Genome
+
+
+	# Reset Gen Count
+	gen = 0
+
+def start_AI():
+	"""
+	Prepare the artificial intelligence by resetting and setting values and the configuration
+
+	:return: None
+	"""
+
+	# Global Variable
+	global hs_genopt_popopt
+
+	# -------------------------------------------------------------------------
+	# Set and Run Configuration Path
+	# -------------------------------------------------------------------------
+	local_dir = os.path.dirname(__file__)
+	config_path = os.path.join(local_dir, os.path.join("utils", "config-feedforward.txt"))
+	run(config_path)
+
 def menu():
 	"""
 	Menu function, that displays the Main Menu and the AI Options Menu
@@ -383,7 +619,7 @@ def menu():
 	)
 
 	# Play Buttons
-	menu.add_button('AI', pygame_menu.events.EXIT)
+	menu.add_button('AI', start_AI)
 	menu.add_button('YOU', main_human)
 
 	# Spacing
