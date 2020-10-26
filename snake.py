@@ -98,8 +98,8 @@ class Snake:
 	savedy = 0
 
 	def __init__(self, x, y):
-		self.x = [x]
-		self.y = [y]
+		self.x = [x, x, x]
+		self.y = [y, y + 15, y + 30] # We want to start with a snake with length of 3
 		self.direction = "Up"
 
 	def move_right(self):
@@ -290,7 +290,7 @@ def draw_window_human(win, snake, food, score, pregame):
 		text = STAT_FONT_BIG.render("Press Arrow Key", 1, (255, 255, 255))
 		win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 - text.get_height()))
 
-	# Return To Menu if Menu Button Pressed
+	# Return To Menu if Menu Button Pressed / Draw menu button
 	if button2.update():
 		menu()
 
@@ -329,7 +329,7 @@ def main_human():
 				pygame.quit()
 				quit()
 
-		# Start Game When Space is Pressed
+		# Start Game When Any key is pressed
 		keys = pygame.key.get_pressed()
 		if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
 			snake.move_right()
@@ -399,7 +399,7 @@ def main_human():
 		# -------------------------------------------------------------------------
 		draw_window_human(win, snake, food, score, False)
 
-def draw_window_ai(win, snake, food, score, pregame):
+def draw_window_ai(win, snake, food, score, gen):
 	"""
 	Draw game using given parameters (Human Game)
 	Can draw both pregame and main game
@@ -418,16 +418,9 @@ def draw_window_ai(win, snake, food, score, pregame):
 	text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
 	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
-	if pregame:
-		# Draw Transparency Over Game
-		transparency_size = (WIN_WIDTH, GAME_WIN_HEIGHT)
-		transparency = pygame.Surface(transparency_size)
-		transparency.set_alpha(150)
-		win.blit(transparency, (0,0))
-
-		# Main Text
-		text = STAT_FONT_BIG.render("Press Arrow Key", 1, (255, 255, 255))
-		win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 - text.get_height()))
+	# Draw Current Generation
+	text = STAT_FONT.render("Gen: " + str(gen), 1, (255, 255, 255))
+	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 10 - text.get_height()))
 
 	# Return To Menu if Menu Button Pressed
 	if button2.update():
@@ -454,7 +447,7 @@ def main_ai(genomes, config):
 	ge.fitness = 0
 
 	# Fix second genome error
-	genomes[1][1].fitness = 0
+	genomes[1][1].fitness = -10
 
 	# Set Variables
 	snake = Snake(GAME_WIN_WIDTH / 2, GAME_WIN_HEIGHT / 2)
@@ -535,7 +528,7 @@ def main_ai(genomes, config):
 		# -------------------------------------------------------------------------
 		# Draw To Screen
 		# -------------------------------------------------------------------------
-		draw_window_human(win, snake, food, score, False)
+		draw_window_ai(win, snake, food, score, gen)
 
 def run(config_path):
 	"""
@@ -571,7 +564,6 @@ def run(config_path):
 
 	# Run Up to [Gen. Option] Generations
 	winner = p.run(main_ai, 1000) # We Save Best Genome
-
 
 	# Reset Gen Count
 	gen = 0
