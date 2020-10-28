@@ -3,8 +3,8 @@ Author: Jad Haddad
 
 flappy_bird
 https://github.com/jadhaddad01/FlappyBirdAI
-Flappy Bird Artificial Intelligence
-Using the NEAT Genetic Neural Network Architecture to train a set of birds to play the popular game Flappy Bird. Also playable by user.
+Snake Artificial Intelligence
+Using the NEAT Genetic Neural Network Architecture to train a set of snakes to play the popular game Snake. Also playable by user.
 
 License:
 -------------------------------------------------------------------------------
@@ -153,19 +153,23 @@ class Snake:
         self.height_begin = hb
 
     def move_right(self):
-        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Left": # We want everything to be in the same "grid"
+        # if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Left":
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0: # We want everything to be in the same "grid"
             self.direction = "Right"
 
     def move_left(self):
-        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Right":
+        # if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Right":
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0:
             self.direction = "Left"
 
     def move_up(self):
-        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Down":
+        # if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Down":
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0:
             self.direction = "Up"
 
     def move_down(self):
-        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Up":
+    	# if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Up":
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0:
             self.direction = "Down"
 
     def move(self):
@@ -509,6 +513,7 @@ def main_human():
             snake.move_up()
 
         snake.move()
+        print(snake.dis_to_snake_or_wall())
 
         if snake.wall_collision() or snake.snake_collision():
             main_human() # Go "back" to pregame
