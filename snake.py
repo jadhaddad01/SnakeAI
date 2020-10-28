@@ -84,6 +84,11 @@ button2 = UI.Button(
 gen = 0
 neural_net_image = None
 
+# How many blocks there are
+blocks = 16
+snakes = 16
+bs_backup = [16, 16]
+
 block_count = 0
 
 # Load Fonts
@@ -95,546 +100,722 @@ STAT_FONT_BIG = pygame.font.SysFont("comicsans", 100)
 # Classes
 # -----------------------------------------------------------------------------
 class Snake:
-	VEL = 15
-	x = [0] # Where index 0 is the head
-	y = [0]
+    # division of constants to fit into one block of many snakes
+    ratio = 1 
+    vel = 15
+    grid_sys = 30
 
-	savedx = 0
-	savedy = 0
+    # snake body
+    x = [0]
+    y = [0]
 
-	def __init__(self, x, y):
-		self.x = [x, x, x]
-		self.y = [y, y + 15, y + 30] # We want to start with a snake with length of 3
-		self.direction = "Up"
+    def __init__(self, x, y, wb, we, hb, he):
+        global blocks
 
-	def move_right(self):
-		if self.x[0] % 30 == 0 and self.y[0] % 30 == 0: # We want everything to be in the same "grid"
-			self.direction = "Right"
+        # Calibrating constants to fit each block
+        self.ratio = math.sqrt(blocks)
+        self.vel = self.vel / self.ratio
+        self.grid_sys = self.grid_sys / self.ratio
+        
+        """
+        # Starting with 3 blocks
+        self.x = [
+                    (x/self.ratio), 
+                    (x/self.ratio), 
+                    (x/self.ratio)
+                ]
+        self.y = [
+                    (y/self.ratio), 
+                    (y/self.ratio) + (self.grid_sys/2), 
+                    (y/self.ratio) + self.grid_sys
+                ]
+        """
 
-	def move_left(self):
-		if self.x[0] % 30 == 0 and self.y[0] % 30 == 0:
-			self.direction = "Left"
+        # Starting with 3 blocks
+        self.x = [
+                    x, 
+                    x,
+                    x
+                ]
+        self.y = [
+                    y,
+                    y + (self.grid_sys/2), 
+                    y + self.grid_sys
+                ]
 
-	def move_up(self):
-		if self.x[0] % 30 == 0 and self.y[0] % 30 == 0:
-			self.direction = "Up"
+        # snake direction
+        self.direction = "Up"
 
-	def move_down(self):
-		if self.x[0] % 30 == 0 and self.y[0] % 30 == 0:
-			self.direction = "Down"
+        # block dimensions
+        self.width_end = we
+        self.height_end = he
+        self.width_begin = wb
+        self.height_begin = hb
 
-	def move(self):
+    def move_right(self):
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Left": # We want everything to be in the same "grid"
+            self.direction = "Right"
 
-		for n in range(len(self.x) - 1, 0, -1):
-			self.x[n] = self.x[n - 1]
-			self.y[n] = self.y[n - 1]
+    def move_left(self):
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Right":
+            self.direction = "Left"
 
-		# if not self.y == 0 and self.direction == "Up": # Force snake not to hit wall
-		if self.direction == "Up":
-			self.y[0] = self.y[0] - self.VEL
+    def move_up(self):
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Down":
+            self.direction = "Up"
 
-		# if not self.y == GAME_WIN_HEIGHT - 30 and self.direction == "Down":
-		if self.direction == "Down":
-			self.y[0] = self.y[0] + self.VEL
+    def move_down(self):
+        if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Up":
+            self.direction = "Down"
 
-		# if not self.x == GAME_WIN_WIDTH - 30 and self.direction == "Right":
-		if self.direction == "Right":
-			self.x[0] = self.x[0] + self.VEL
+    def move(self):
 
-		# if not self.x == 0 and self.direction == "Left":
-		if self.direction == "Left":
-			self.x[0] = self.x[0] - self.VEL
-			
+        for n in range(len(self.x) - 1, 0, -1):
+            self.x[n] = self.x[n - 1]
+            self.y[n] = self.y[n - 1]
 
-	def wall_collision(self):
-		if self.y[0] < 0 or (self.y[0] == GAME_WIN_HEIGHT - 15 and self.direction == "Down") or self.x[0] < 0 or (self.x[0] == GAME_WIN_WIDTH - 15 and self.direction == "Right"):
-			return True
+        # if not self.y == 0 and self.direction == "Up": # Force snake not to hit wall
+        if self.direction == "Up":
+            self.y[0] = self.y[0] - self.vel
 
-		return False
+        # if not self.y == GAME_WIN_HEIGHT - 30 and self.direction == "Down":
+        if self.direction == "Down":
+            self.y[0] = self.y[0] + self.vel
 
-	def snake_collision(self):
-		# Make list of box coordinates sublist
-		tmp = []
-		for n in range(len(self.x)):
-			tmp.append([self.x[n], self.y[n]])
+        # if not self.x == GAME_WIN_WIDTH - 30 and self.direction == "Right":
+        if self.direction == "Right":
+            self.x[0] = self.x[0] + self.vel
 
-		return not len([list(i) for i in set(map(tuple, tmp))]) == len(tmp) # Checks for duplicate sublists
+        # if not self.x == 0 and self.direction == "Left":
+        if self.direction == "Left":
+            self.x[0] = self.x[0] - self.vel
+            
 
-	def get_last_block(self):
-		return (self.x[len(self.x) - 1], self.y[len(self.y) - 1])
+    def wall_collision(self):
+        return (
+                self.y[0] < self.height_begin
+                or (self.y[0] == self.height_end - self.vel and self.direction == "Down") 
+                or self.x[0] < self.width_begin 
+                or (self.x[0] == self.width_end - self.vel and self.direction == "Right")
+                )
 
-	def get_coord_head(self):
-		return (self.x[0], self.y[0])
+    def snake_collision(self):
+        # Make list of box coordinates sublist
+        tmp = []
+        for n in range(len(self.x)):
+            tmp.append([self.x[n], self.y[n]])
 
-	def get_body(self):
-		return (self.x, self.y)
+        return not len([list(i) for i in set(map(tuple, tmp))]) == len(tmp) # Checks for duplicate sublists
 
-	def add_block(self, xadd, yadd):
-		self.x.append(xadd)
-		self.y.append(yadd)
+    def get_last_block(self):
+        return (self.x[len(self.x) - 1], self.y[len(self.y) - 1])
 
-	def dis_to_snake_or_wall(self):
-		left = 0
-		right = 0
-		top = 0
-		bottom = 0
+    def get_coord_head(self):
+        return (self.x[0], self.y[0])
 
-		# we want closest block not farthest
-		leftflag = True
-		rightflag = True
-		topflag = True
-		bottomflag = True
+    def get_body(self):
+        return (self.x, self.y)
 
-		# Snake
-		for n in range(1, len(self.x)): # Don't include head
-			if self.y[n] == self.y[0]:
-				if self.x[n] < self.x[0] and leftflag:
-					left = self.x[0] - self.x[n]
-					leftflag = False
-				if self.x[n] > self.x[0] and rightflag:
-					right = self.x[n] - self.x[0]
-					rightflag = False
+    def add_block(self, xadd, yadd):
+        self.x.append(xadd)
+        self.y.append(yadd)
 
-			if self.x[n] == self.x[0]:
-				if self.y[n] < self.y[0] and bottomflag:
-					bottom = self.y[0] - self.y[n]
-					bottomflag = False
-				if self.y[n] > self.y[0] and topflag:
-					top = self.y[n] - self.y[0]
-					topflag = False
+    def dis_to_snake_or_wall(self):
+        left = self.width_begin
+        right = self.width_end
+        top = self.height_begin
+        bottom = self.height_end
 
-		# Wall IF NO SNAKE
-		if left == 0:
-			left = self.x[0]
-		if right == 0:
-			right = GAME_WIN_WIDTH - self.x[0]
-		if top == 0:
-			top = self.y[0]
-		if bottom == 0:
-			bottom = GAME_WIN_HEIGHT - self.y[0]
+        # we want closest block not farthest
+        leftflag = True
+        rightflag = True
+        topflag = True
+        bottomflag = True
 
-		return (right, left, bottom, top)
+        # Snake
+        for n in range(1, len(self.x)): # Don't include head
+            if self.y[n] == self.y[0]:
+                if self.x[n] < self.x[0] and leftflag:
+                    left = self.x[0] - self.x[n]
+                    leftflag = False
+                if self.x[n] > self.x[0] and rightflag:
+                    right = self.x[n] - self.x[0]
+                    rightflag = False
 
-	def draw(self, win):
-		for n in range(len(self.x)): # x has same length as y
-			pygame.draw.rect(win, (255,255,255), (self.x[n], self.y[n], 30, 30))
+            if self.x[n] == self.x[0]:
+                if self.y[n] < self.y[0] and topflag:
+                    top = self.y[0] - self.y[n]
+                    topflag = False
+                if self.y[n] > self.y[0] and bottomflag:
+                    bottom = self.y[n] - self.y[0]
+                    bottomflag = False
+
+        # Wall IF NO SNAKE
+        if left == self.width_begin:
+            left = self.x[0] - self.width_begin
+        if right == self.width_end:
+            right = self.width_end - self.x[0]
+        if top == self.height_begin:
+            top = self.y[0] - self.height_begin
+        if bottom == self.height_end:
+            bottom = self.height_end - self.y[0]
+
+        return (right, left, bottom, top)
+
+    def draw(self, win):
+        for n in range(len(self.x)): # x has same length as y
+            pygame.draw.rect(win, (255,255,255), (self.x[n], self.y[n], self.grid_sys, self.grid_sys))
 
 class Food:
+    # division of constants to fit into one block of many foods
+    ratio = 1 
+    grid_sys = 30
 
-	def __init__(self):
-		self.x = random.randrange(0, GAME_WIN_WIDTH / 30) * 30 # We want everything to be in the same "grid"
-		self.y = random.randrange(0, GAME_WIN_HEIGHT / 30) * 30
+    def __init__(self, wb, we, hb, he):
+        # Calibrating constants to fit each block
+        self.ratio = math.sqrt(blocks)
+        self.grid_sys = self.grid_sys / self.ratio
 
-	def new(self, snake):
+        # block dimensions
+        self.width_end = we
+        self.height_end = he
+        self.width_begin = wb
+        self.height_begin = hb
 
-		not_satisfied = True
-		while not_satisfied:
-			self.x = random.randrange(0, GAME_WIN_WIDTH / 30) * 30
-			self.y = random.randrange(0, GAME_WIN_HEIGHT / 30) * 30
+        self.x = random.randrange(
+                                    100 * self.width_begin, 
+                                    100 * self.width_end, 
+                                    100 * self.grid_sys # We want everything to be in the same "grid"
+                                ) / 100 # Accounting float for larger block num
+        self.y = random.randrange(
+                                    100 * self.height_begin, 
+                                    100 * self.height_end, 
+                                    100 * self.grid_sys
+                                ) / 100
 
-			# Check if not in same position as snake body
-			tmp = []
-			# Make Snake Body 2D Array
-			(xbody, ybody) = snake.get_body()
-			for n in range(len(xbody)):
-				tmp.append([xbody[n], ybody[n]])
-			# Add food in array and check if two coordinates are the same
-			tmp.append([self.x, self.y])
-			# If two coordinates are the same we make new food again
-			if len([list(i) for i in set(map(tuple, tmp))]) == len(tmp):
-				not_satisfied = False
+    def new(self, snake):
 
-	def eaten(self, snake):
-		(snakex, snakey) = snake.get_coord_head()
-		if self.x == snakex and self.y == snakey:
-			return True
-		return False
+        not_satisfied = True
+        while not_satisfied:
+            self.x = random.randrange(
+                                        100 * self.width_begin, 
+                                        100 * self.width_end, 
+                                        100 * self.grid_sys 
+                                    ) / 100 
+            self.y = random.randrange(
+                                        100 * self.height_begin, 
+                                        100 * self.height_end, 
+                                        100 * self.grid_sys
+                                    ) / 100
 
-	def distance_to_food(self, snake):
-		(headx, heady) = snake.get_coord_head()
+            # Check if not in same position as snake body
+            tmp = []
+            # Make Snake Body 2D Array
+            (xbody, ybody) = snake.get_body()
+            for n in range(len(xbody)):
+                tmp.append([xbody[n], ybody[n]])
+            # Add food in array and check if two coordinates are the same
+            tmp.append([self.x, self.y])
+            # If two coordinates are the same we make new food again
+            if len([list(i) for i in set(map(tuple, tmp))]) == len(tmp):
+                not_satisfied = False
 
-		x = (self.x - headx) ** 2
-		y = (self.y - heady) ** 2
+    def eaten(self, snake):
+        (snakex, snakey) = snake.get_coord_head()
+        return self.x == snakex and self.y == snakey
 
-		return math.sqrt(x + y)
+    def distance_to_food(self, snake):
+        (headx, heady) = snake.get_coord_head()
 
-	def draw(self, win):
-		pygame.draw.rect(win, (255,0,0), (self.x, self.y, 30, 30))
+        """
+        x = (self.x - headx) ** 2
+        y = (self.y - heady) ** 2
 
+        return math.sqrt(x + y)
+        """
+
+        return (self.x - headx, self.y - heady)
+
+    def draw(self, win):
+        pygame.draw.rect(win, (255,0,0), (self.x, self.y, self.grid_sys, self.grid_sys))
 
 # -----------------------------------------------------------------------------
 # Methods
 # -----------------------------------------------------------------------------
+def next_square(num):
+    """
+    Gives the closest number in which its square root is an integer
+
+    :return: closest squarable num
+    :type: int
+    """
+
+    if (math.sqrt(num)).is_integer():
+        return num
+    return next_square(num + 1)
+
 def draw_window_human(win, snake, food, score, pregame):
-	"""
-	Draw game using given parameters (Human Game)
-	Can draw both pregame and main game
+    """
+    Draw game using given parameters (Human Game)
+    Can draw both pregame and main game
 
-	:return: None
-	"""
-	win.fill((0,0,0))
+    :return: None
+    """
 
-	snake.draw(win)
+    win.fill((0,0,0))
 
-	food.draw(win)
+    snake.draw(win)
 
-	pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
+    food.draw(win)
 
-	# Draw Current Score
-	text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
-	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+    # score seperator
+    pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
 
-	if pregame:
-		# Draw Transparency Over Game
-		transparency_size = (WIN_WIDTH, GAME_WIN_HEIGHT)
-		transparency = pygame.Surface(transparency_size)
-		transparency.set_alpha(150)
-		win.blit(transparency, (0,0))
+    # blocks seperators
+    for i in range(1, int(math.sqrt(blocks))):
+        pygame.draw.line(
+                            win, 
+                            (255,255,255), 
+                            (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), 0), 
+                            (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), GAME_WIN_HEIGHT)
+                        )
+        pygame.draw.line(
+                            win, 
+                            (255,255,255), 
+                            (0, i * (GAME_WIN_HEIGHT / math.sqrt(blocks))), 
+                            (GAME_WIN_WIDTH, i * (GAME_WIN_HEIGHT / math.sqrt(blocks)))
+                        )
 
-		# Main Text
-		text = STAT_FONT_BIG.render("Press Arrow Key", 1, (255, 255, 255))
-		win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 - text.get_height()))
 
-	# Return To Menu if Menu Button Pressed / Draw menu button
-	if button2.update():
-		menu()
+    # Draw Current Score
+    text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
+    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
-	# Update the Current Display
-	pygame.display.update()
+    if pregame:
+        # Draw Transparency Over Game
+        transparency_size = (WIN_WIDTH, GAME_WIN_HEIGHT)
+        transparency = pygame.Surface(transparency_size)
+        transparency.set_alpha(150)
+        win.blit(transparency, (0,0))
+
+        # Main Text
+        text = STAT_FONT_BIG.render("Press Arrow Key", 1, (255, 255, 255))
+        win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 - text.get_height()))
+
+    # Return To Menu if Menu Button Pressed / Draw menu button
+    if button2.update():
+        menu()
+
+    # Update the Current Display
+    pygame.display.update()
 
 def main_human():
-	"""
-	Play game for user
+    """
+    Play game for user
 
-	:return: None
-	"""
+    :return: None
+    """
 
-	# Global Variables
-	global FPS
-	global block_count
+    # Global Variables
+    global FPS
+    global blocks
+    global snakes
 
-	# Set Variables
-	snake = Snake(GAME_WIN_WIDTH / 2, GAME_WIN_HEIGHT / 2)
-	food = Food()
+    global block_count
 
-	# win = pygame.display.set_mode((WIN_WIDTH, GAME_WIN_HEIGHT))
-	clock = pygame.time.Clock()
+    # reset block and snakes to 1
+    blocks = 1
+    snakes = 1
 
-	score = 0
+    xsaved = 0
+    ysaved = 0
 
-	# -------------------------------------------------------------------------
-	# Game: Before the Game
-	# -------------------------------------------------------------------------
-	run_pregame = True
-	while run_pregame:
-		clock.tick(FPS) # Allow only for FPS Frames per Second
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				run = False
-				pygame.quit()
-				quit()
+    # Set Variables
+    snake = Snake(
+                    GAME_WIN_WIDTH / 2, 
+                    GAME_WIN_HEIGHT / 2, 
+                    0, 
+                    GAME_WIN_WIDTH, 
+                    0, 
+                    GAME_WIN_HEIGHT
+                )
+    food = Food(
+                    0, 
+                    GAME_WIN_WIDTH, 
+                    0, 
+                    GAME_WIN_HEIGHT
+                )
 
-		# Start Game When Any key is pressed
-		keys = pygame.key.get_pressed()
-		if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-			snake.move_right()
-			run_pregame = False
-		if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-			snake.move_left()
-			run_pregame = False
-		if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-			snake.move_down()
-			run_pregame = False
-		if keys[pygame.K_UP] or keys[pygame.K_w]:
-			snake.move_up()
-			run_pregame = False
+    # win = pygame.display.set_mode((WIN_WIDTH, GAME_WIN_HEIGHT))
+    clock = pygame.time.Clock()
 
-		# -------------------------------------------------------------------------
-		# Draw To Screen
-		# -------------------------------------------------------------------------
-		draw_window_human(win, snake, food, score, True)
+    score = 0
 
-	# -------------------------------------------------------------------------
-	# Game: Main Game
-	# -------------------------------------------------------------------------
-	run = True
-	while run:
-		clock.tick(FPS)
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				run = False
-				pygame.quit()
-				quit()
+    # -------------------------------------------------------------------------
+    # Game: Before the Game
+    # -------------------------------------------------------------------------
+    run_pregame = True
+    while run_pregame:
+        clock.tick(FPS) # Allow only for FPS Frames per Second
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+                pygame.quit()
+                quit()
 
-		# Go Right / Left / Up / Down
-		keys = pygame.key.get_pressed()
-		if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-			snake.move_right()
-		if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-			snake.move_left()
-		if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-			snake.move_down()
-		if keys[pygame.K_UP] or keys[pygame.K_w]:
-			snake.move_up()
+        # Start Game When Any key is pressed
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            snake.move_right()
+            run_pregame = False
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            snake.move_left()
+            run_pregame = False
+        """
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            snake.move_down()
+            run_pregame = False
+        """
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            snake.move_up()
+            run_pregame = False
 
-		# Move To Wanted Direction
-		snake.move()
+        # -------------------------------------------------------------------------
+        # Draw To Screen
+        # -------------------------------------------------------------------------
+        draw_window_human(win, snake, food, score, True)
 
-		if block_count == 1:
-			block_count += 1
+    # -------------------------------------------------------------------------
+    # Game: Main Game
+    # -------------------------------------------------------------------------
+    run = True
+    while run:
+        clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+                pygame.quit()
+                quit()
 
-		if block_count == 2:
-			snake.add_block(xsaved, ysaved)
-			block_count = 0
+        # Go Right / Left / Up / Down
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            snake.move_right()
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            snake.move_left()
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            snake.move_down()
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            snake.move_up()
 
-		if snake.wall_collision() or snake.snake_collision():
-			main_human() # Go "back" to pregame
+        snake.move()
 
-		if food.eaten(snake):
-			score += 1
-			
-			# Create Extra Block Snake
-			(xsaved, ysaved) = snake.get_last_block()
-			block_count += 1
+        if snake.wall_collision() or snake.snake_collision():
+            main_human() # Go "back" to pregame
 
-			food.new(snake)
+        if block_count == 1:
+            block_count += 1
 
-		# -------------------------------------------------------------------------
-		# Draw To Screen
-		# -------------------------------------------------------------------------
-		draw_window_human(win, snake, food, score, False)
+        if block_count == 2:
+            snake.add_block(xsaved, ysaved)
+            block_count = 0
+        
+        if food.eaten(snake):
+            score += 1
+
+            # Create Extra Block Snake
+            (xsaved, ysaved) = snake.get_last_block()
+            block_count += 1
+
+            food.new(snake)
+        
+
+        # -------------------------------------------------------------------------
+        # Draw To Screen
+        # -------------------------------------------------------------------------
+        draw_window_human(win, snake, food, score, False)
 
 def draw_window_ai(win, snake, food, score, gen):
-	"""
-	Draw game using given parameters (Human Game)
-	Can draw both pregame and main game
+    """
+    Draw game using given parameters (AI Game)
 
-	:return: None
-	"""
-	win.fill((0,0,0))
+    :return: None
+    """
+    win.fill((0,0,0))
 
-	snake.draw(win)
+    for i in range(len(snake)):
 
-	food.draw(win)
+        snake[i].draw(win)
 
-	pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
+        food[i].draw(win)
 
-	# Draw Current Score
-	text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
-	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+    # score seperator
+    pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
 
-	# Draw Current Generation
-	text = STAT_FONT.render("Gen: " + str(gen), 1, (255, 255, 255))
-	win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 10 - text.get_height()))
+    # blocks seperators
+    for i in range(1, int(math.sqrt(blocks))):
+        pygame.draw.line(
+                            win, 
+                            (255,255,255), 
+                            (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), 0), 
+                            (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), GAME_WIN_HEIGHT)
+                        )
+        pygame.draw.line(
+                            win, 
+                            (255,255,255), 
+                            (0, i * (GAME_WIN_HEIGHT / math.sqrt(blocks))), 
+                            (GAME_WIN_WIDTH, i * (GAME_WIN_HEIGHT / math.sqrt(blocks)))
+                        )
 
-	# Return To Menu if Menu Button Pressed
-	if button2.update():
-		menu()
 
-	# Update the Current Display
-	pygame.display.update()
+    # Draw Current Score
+    text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
+    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
+    # Return To Menu if Menu Button Pressed / Draw menu button
+    if button2.update():
+        menu()
+
+    # Update the Current Display
+    pygame.display.update()
 def main_ai(genomes, config):
-	"""
-	Play game for user
+    # Global Variables
+    global FPS
+    global gen
 
-	:return: None
-	"""
+    global blocks
+    global snakes
+    global bs_backup
 
-	# Global Variables
-	global FPS
-	global block_count
-	global gen
+    blocks = bs_backup[0]
+    snakes = bs_backup[1]
 
+    # block array for width and height of each block
+    width_begin = []
+    width_end = []
+    height_begin = []
+    height_end = []
 
-	ge = genomes[0][1]
-	net = neat.nn.FeedForwardNetwork.create(ge, config)
-	ge.fitness = 0
+    # set w / h to each block as they go left to right top to bottom (index starts at 0)
+    for i in range(0, int(math.sqrt(blocks))):
+        for j in range(0, int(math.sqrt(blocks))):
+            width_begin.append(j * (GAME_WIN_WIDTH / math.sqrt(blocks)))
+            width_end.append((j + 1) * (GAME_WIN_WIDTH / math.sqrt(blocks)))
 
-	# Fix second genome error
-	genomes[1][1].fitness = -10
+            height_begin.append(i * (GAME_WIN_HEIGHT / math.sqrt(blocks)))
+            height_end.append((i + 1) * (GAME_WIN_HEIGHT / math.sqrt(blocks)))
 
-	# Set Variables
-	snake = Snake(GAME_WIN_WIDTH / 2, GAME_WIN_HEIGHT / 2)
-	food = Food()
+    # Set Variables
+    snake = []
+    food = []
+    times = []
 
-	current_time = time.time()
+    block_count = []
+    xsaved = []
+    ysaved = []
 
-	# win = pygame.display.set_mode((WIN_WIDTH, GAME_WIN_HEIGHT))
-	clock = pygame.time.Clock()
+    nets = []
+    ge = []
+    i = 0
+    for _, g in genomes:
+        net = neat.nn.FeedForwardNetwork.create(g, config)
+        nets.append(net)
 
-	score = 0
-	gen += 1
+        g.fitness = 0
+        ge.append(g)
 
-	# -------------------------------------------------------------------------
-	# Game: Main Game
-	# -------------------------------------------------------------------------
-	run = True
-	while run:
-		clock.tick(FPS)
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				run = False
-				pygame.quit()
-				quit()
+        snake.append(Snake(
+                        (width_end[i] + width_begin[i]) / 2, 
+                        (height_end[i] + height_begin[i]) / 2, 
+                        width_begin[i], 
+                        width_end[i], 
+                        height_begin[i], 
+                        height_end[i]
+                    ))
+        food.append(Food(
+                        width_begin[i], 
+                        width_end[i], 
+                        height_begin[i], 
+                        height_end[i]
+                    ))
 
-		(headx, heady) = snake.get_coord_head()
-		food_distance = food.distance_to_food(snake)
-		
-		# SubInp: Distance to Snake OR Wall (What's Closest)
-		(right, left, down, up) = snake.dis_to_snake_or_wall()
+        times.append(time.time())
+        block_count.append(0)
+        xsaved.append(0)
+        ysaved.append(0)
 
-		# Inputs: Headx, Heady, Distance to Food, Subinp1, Subinp2
-		outputs = net.activate((headx, heady, food_distance, right, left, down, up))
+        i += 1
 
-		# Go Right / Left / Up / Down
-		if outputs[0] > 0.5:
-			snake.move_right()
-		if outputs[1] > 0.5:
-			snake.move_left()
-		if outputs[2] > 0.5:
-			snake.move_down()
-		if outputs[3] > 0.5:
-			snake.move_up()
+    clock = pygame.time.Clock()
+    score = 0
+    gen += 1
 
-		# Move To Wanted Direction
-		snake.move()
+    run = True
+    while run:
+        clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+                pygame.quit()
+                quit()
 
-		if block_count == 1:
-			block_count += 1
+        if not len(snake) > 0:
+            run = False
 
-		if block_count == 2:
-			snake.add_block(xsaved, ysaved)
-			block_count = 0
+        for x, python in enumerate(snake):
+            ge[x].fitness += 0.5
 
-		if snake.wall_collision() or snake.snake_collision():
-			ge.fitness -= 2
-			run = False
-			break
+            (headx, heady) = python.get_coord_head()
+            (food_distance_x, food_distance_y) = food[x].distance_to_food(python)
+            
+            # SubInp: Distance to Snake OR Wall (What's Closest)
+            (right, left, down, up) = python.dis_to_snake_or_wall()
 
-		# We don't want the snake to go in loops
-		if time.time() - current_time >= 10:
-			 ge.fitness -= 2
-			 run = False
-			 break
+            # Inputs: Headx, Heady, Distance to Food, Subinp1, Subinp2
+            outputs = net.activate((headx, heady, food_distance_x, food_distance_y, right, left, down, up))
+            direc = outputs.index(max(outputs))
 
-		if food.eaten(snake):
-			score += 1
-			ge.fitness += 2
-			
-			# Create Extra Block Snake
-			(xsaved, ysaved) = snake.get_last_block()
-			block_count += 1
+            # Go Right / Left / Up / Down
+            if direc == 0:
+                python.move_right()
+            if direc == 1:
+                python.move_left()
+            if direc == 2:
+                python.move_down()
+            if direc == 3:
+                python.move_up()
 
-			current_time = time.time() # Reset timer
+            python.move()
 
-			food.new(snake)
+            if python.wall_collision() or python.snake_collision() or (time.time() - times[x] >= 10):
+                snake.pop(x)
+                food.pop(x)
+                nets.pop(x)
+                times.pop(x)
+                ge[x].fitness -= 2
+                ge.pop(x)
 
-		# -------------------------------------------------------------------------
-		# Draw To Screen
-		# -------------------------------------------------------------------------
-		draw_window_ai(win, snake, food, score, gen)
+        for x, apple in enumerate(food):
+            if block_count[x] == 1:
+                block_count[x] += 1
+
+            if block_count[x] == 2:
+                snake[x].add_block(xsaved[x], ysaved[x])
+                block_count[x] = 0
+
+            if apple.eaten(snake[x]):
+                ge[x].fitness += 50
+
+                times[x] = time.time()
+
+                (xsaved[x], ysaved[x]) = snake[x].get_last_block()
+                block_count[x] += 1
+
+                apple.new(snake[x])
+
+        draw_window_ai(win, snake, food, score, gen)
+
 
 def run(config_path):
-	"""
-	Use given configuration path and variables to start teaching the AI to play the game
-	Then visualize the data with the genome containing highest fitness
+    """
+    Use given configuration path and variables to start teaching the AI to play the game
+    Then visualize the data with the genome containing highest fitness
 
-	:param config_path: path to the neural 
-	:type config_path: int / range[0 -> 99]
+    :param config_path: path to the neural 
+    :type config_path: int / range[0 -> 99]
 
-	:return: None
-	"""
+    :return: None
+    """
 
-	global gen
+    global gen
 
-	# -------------------------------------------------------------------------
-	# Load Configuration
-	# -------------------------------------------------------------------------
-	config = neat.config.Config(
-		neat.DefaultGenome,
-		neat.DefaultReproduction,
-		neat.DefaultSpeciesSet,
-		neat.DefaultStagnation,
-		config_path
-	)
+    # -------------------------------------------------------------------------
+    # Load Configuration
+    # -------------------------------------------------------------------------
+    config = neat.config.Config(
+        neat.DefaultGenome,
+        neat.DefaultReproduction,
+        neat.DefaultSpeciesSet,
+        neat.DefaultStagnation,
+        config_path
+    )
 
-	# Create Population
-	p = neat.Population(config)
+    # Create Population
+    p = neat.Population(config)
 
-	# Add StdOut Reporter (Displays Progress in Terminal)
-	p.add_reporter(neat.StdOutReporter(True))
-	stats = neat.StatisticsReporter()
-	p.add_reporter(stats)
+    # Add StdOut Reporter (Displays Progress in Terminal)
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
 
-	# Run Up to [Gen. Option] Generations
-	winner = p.run(main_ai, 1000) # We Save Best Genome
+    # Run Up to [Gen. Option] Generations
+    winner = p.run(main_ai, 1000) # We Save Best Genome
 
-	# Reset Gen Count
-	gen = 0
+    # Reset Gen Count
+    gen = 0
 
 def start_AI():
-	"""
-	Prepare the artificial intelligence by resetting and setting values and the configuration
+    """
+    Prepare the artificial intelligence by resetting and setting values and the configuration
 
-	:return: None
-	"""
+    :return: None
+    """
 
-	# Global Variable
-	global hs_genopt_popopt
+    # Global Variable
+    global hs_genopt_popopt
 
-	# -------------------------------------------------------------------------
-	# Set and Run Configuration Path
-	# -------------------------------------------------------------------------
-	local_dir = os.path.dirname(__file__)
-	config_path = os.path.join(local_dir, os.path.join("utils", "config-feedforward.txt"))
-	run(config_path)
+    # -------------------------------------------------------------------------
+    # Set and Run Configuration Path
+    # -------------------------------------------------------------------------
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, os.path.join("utils", "config-feedforward.txt"))
+    run(config_path)
 
 def menu():
-	"""
-	Menu function, that displays the Main Menu and the AI Options Menu
+    """
+    Menu function, that displays the Main Menu and the AI Options Menu
 
-	:return: None
-	"""
+    :return: None
+    """
 
-	global FPS
+    global FPS
 
-	# Menu Theme
-	menu_theme = pygame_menu.themes.THEME_BLUE.copy()
-	menu_theme.widget_font = pygame_menu.font.FONT_8BIT # Copy of blue theme with 8bit font instead
+    # Menu Theme
+    menu_theme = pygame_menu.themes.THEME_BLUE.copy()
+    menu_theme.widget_font = pygame_menu.font.FONT_8BIT # Copy of blue theme with 8bit font instead
 
 
-	# -------------------------------------------------------------------------
-	# Create menus: Main menu
-	# -------------------------------------------------------------------------
-	menu = pygame_menu.Menu(
-		GAME_WIN_HEIGHT, 
-		WIN_WIDTH, 
-		'Snake', 
-		theme=menu_theme, 
-		onclose=pygame_menu.events.EXIT
-	)
+    # -------------------------------------------------------------------------
+    # Create menus: Main menu
+    # -------------------------------------------------------------------------
+    menu = pygame_menu.Menu(
+        GAME_WIN_HEIGHT, 
+        WIN_WIDTH, 
+        'Snake', 
+        theme=menu_theme, 
+        onclose=pygame_menu.events.EXIT
+    )
 
-	# Play Buttons
-	menu.add_button('AI', start_AI)
-	menu.add_button('YOU', main_human)
+    # Play Buttons
+    menu.add_button('AI', start_AI)
+    menu.add_button('YOU', main_human)
 
-	# Spacing
-	menu.add_label('')
-	menu.add_label('')
-	menu.add_label('')
-	menu.add_label('')
+    # Spacing
+    menu.add_label('')
+    menu.add_label('')
+    menu.add_label('')
+    menu.add_label('')
 
-	# Options and Quit
-	menu.add_button('AI Options', pygame_menu.events.EXIT)
-	menu.add_button('Quit', pygame_menu.events.EXIT)
+    # Options and Quit
+    menu.add_button('AI Options', pygame_menu.events.EXIT)
+    menu.add_button('Quit', pygame_menu.events.EXIT)
 
-	# Main Menu Loop
-	menu.mainloop(win, fps_limit=FPS)
+    # Main Menu Loop
+    menu.mainloop(win, fps_limit=FPS)
 
 # -----------------------------------------------------------------------------
 # Main Program
 # -----------------------------------------------------------------------------
 if __name__== "__main__":
-	# Run Menu
-	menu()
+    # Run Menu
+    menu()
