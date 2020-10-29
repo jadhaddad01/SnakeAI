@@ -368,8 +368,6 @@ class Food:
 # -----------------------------------------------------------------------------
 # Methods
 # -----------------------------------------------------------------------------
-
-
 def next_square(num):
     """
     Gives the closest number in which its square root is an integer
@@ -941,7 +939,7 @@ def menu():
     menu = pygame_menu.Menu(
         GAME_WIN_HEIGHT, 
         WIN_WIDTH, 
-        'Flappy Bird', 
+        'Snake', 
         theme=menu_theme, 
         onclose=pygame_menu.events.EXIT
     )
