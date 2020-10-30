@@ -65,10 +65,26 @@ FPS = 30
 
 # Load Window and Menu Button
 win = UI.Window(WIN_WIDTH, GAME_WIN_HEIGHT)
-button2 = UI.Button(
+human_menu = UI.Button(
     # Top right under score count (SEE DISPLAY FUNCTIONS)
     x=WIN_WIDTH - 10 - 120,
     y=50,
+    w=120,
+    h=35,
+    param_options={
+        'curve': 0.3,
+        'text': "Menu",
+        'font_colour': (255, 255, 255),
+        'background_color': (200, 200, 200),
+        'hover_background_color': (160, 160, 160),
+        'outline_half': False
+    }
+)
+
+ai_menu = UI.Button(
+    # Top right under score count (SEE DISPLAY FUNCTIONS)
+    x=WIN_WIDTH - 10 - 120,
+    y=100,
     w=120,
     h=35,
     param_options={
@@ -460,7 +476,7 @@ def draw_window_human(win, snake, food, score, pregame):
         win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 + 100))
 
     # Return To Menu if Menu Button Pressed / Draw menu button
-    if button2.update():
+    if human_menu.update():
         menu()
 
     # Update the Current Display
@@ -610,29 +626,39 @@ def draw_window_ai(win, snake, food, scores, gen):
     """
     win.fill((0,0,0))
 
-    """
+    
     tmp_stat_font = None
     try:
         tmp_stat_font = pygame.font.SysFont("comicsans", int(50 / snake[0].get_ratio()))
     except Exception as e:
         # No more snakes
         pass
-    """
     
+
     for i in range(len(snake)):
 
         snake[i].draw(win)
 
         food[i].draw(win)
 
-        """
+        # block
+        (we, he, wb, hb) = snake[i].get_w_h()
+        
         # Draw score for each block
-        (wb, we, hb, he) = snake[i].get_w_h()
         score = scores[i]
         text = tmp_stat_font.render(str(score), 1, (255, 255, 255))
         # Fix here
         win.blit(text, (we - int(10 / snake[i].get_ratio()) - text.get_width(), hb + int(10 / snake[i].get_ratio())))
-        """
+
+        # Transparent rect over bloc if mouse hovers
+        mos_x, mos_y = pygame.mouse.get_pos()
+        if(mos_x > wb and mos_x < we and mos_y > hb and mos_y < he):
+            # Draw Transparency Over Block
+            transparency_size = (we-wb, he-hb)
+            transparency = pygame.Surface(transparency_size)
+            transparency.set_alpha(150)
+            win.blit(transparency, (wb, hb))
+        
 
     # score seperator
     pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
@@ -653,9 +679,11 @@ def draw_window_ai(win, snake, food, scores, gen):
                         )
 
 
-    # Draw Current Score
+    # Draw Total Score
     text = STAT_FONT.render("Score: " + str(sum_list(scores)), 1, (255, 255, 255))
-    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+    text1 = STAT_FONT.render("Total", 1, (255, 255, 255))
+    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 20 + text1.get_height()))
+    win.blit(text1, (WIN_WIDTH - 10 - text.get_width(), 10))
 
     # Draw Current Generation
     text = STAT_FONT.render("Gen: " + str(gen), 1, (255, 255, 255))
@@ -666,7 +694,7 @@ def draw_window_ai(win, snake, food, scores, gen):
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 10 - text.get_height()))
 
     # Return To Menu if Menu Button Pressed / Draw menu button
-    if button2.update():
+    if ai_menu.update():
         menu()
 
     # Update the Current Display
