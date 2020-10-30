@@ -239,6 +239,12 @@ class Snake:
     def get_body(self):
         return (self.x, self.y)
 
+    def get_w_h(self):
+        return (self.width_end, self.height_end, self.width_begin, self.height_begin)
+
+    def get_ratio(self):
+        return self.ratio
+
     def add_block(self, xadd, yadd):
         self.x.append(xadd)
         self.y.append(yadd)
@@ -372,6 +378,9 @@ def next_square(num):
     """
     Gives the closest number in which its square root is an integer
 
+    :param num: number to calculate closest square
+    :type: int
+
     :return: closest squarable num
     :type: int
     """
@@ -380,6 +389,22 @@ def next_square(num):
         return num
     return next_square(num + 1)
 
+def sum_list(l):
+    """
+    Returns the sum of everything inside a list
+
+    :param l: list of integers to sumate
+    :type: int[]
+
+    :return: sum of all integers in list
+    :type: int
+    """
+
+    s = 0
+    for i in l:
+        s += i
+
+    return s
 
 def draw_window_human(win, snake, food, score, pregame):
     """
@@ -577,7 +602,7 @@ def main_human():
         # -------------------------------------------------------------------------
         draw_window_human(win, snake, food, score, False)
 
-def draw_window_ai(win, snake, food, score, gen):
+def draw_window_ai(win, snake, food, scores, gen):
     """
     Draw game using given parameters (AI Game)
 
@@ -585,11 +610,29 @@ def draw_window_ai(win, snake, food, score, gen):
     """
     win.fill((0,0,0))
 
+    """
+    tmp_stat_font = None
+    try:
+        tmp_stat_font = pygame.font.SysFont("comicsans", int(50 / snake[0].get_ratio()))
+    except Exception as e:
+        # No more snakes
+        pass
+    """
+    
     for i in range(len(snake)):
 
         snake[i].draw(win)
 
         food[i].draw(win)
+
+        """
+        # Draw score for each block
+        (wb, we, hb, he) = snake[i].get_w_h()
+        score = scores[i]
+        text = tmp_stat_font.render(str(score), 1, (255, 255, 255))
+        # Fix here
+        win.blit(text, (we - int(10 / snake[i].get_ratio()) - text.get_width(), hb + int(10 / snake[i].get_ratio())))
+        """
 
     # score seperator
     pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
@@ -611,7 +654,7 @@ def draw_window_ai(win, snake, food, score, gen):
 
 
     # Draw Current Score
-    text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
+    text = STAT_FONT.render("Score: " + str(sum_list(scores)), 1, (255, 255, 255))
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
     # Draw Current Generation
@@ -660,6 +703,7 @@ def main_ai(genomes, config):
     snake = []
     food = []
     times = []
+    scores = []
 
     block_count = []
     xsaved = []
@@ -691,6 +735,7 @@ def main_ai(genomes, config):
                     ))
 
         times.append(time.time())
+        scores.append(0)
         block_count.append(0)
         xsaved.append(0)
         ysaved.append(0)
@@ -743,6 +788,7 @@ def main_ai(genomes, config):
                 food.pop(x)
                 nets.pop(x)
                 times.pop(x)
+                scores.pop(x)
                 ge[x].fitness -= 2
                 ge.pop(x)
 
@@ -755,16 +801,18 @@ def main_ai(genomes, config):
                 block_count[x] = 0
 
             if apple.eaten(snake[x]):
-                ge[x].fitness += 50
+                ge[x].fitness += 30
 
                 times[x] = time.time()
+
+                scores[x] += 1
 
                 (xsaved[x], ysaved[x]) = snake[x].get_last_block()
                 block_count[x] += 1
 
                 apple.new(snake[x])
 
-        draw_window_ai(win, snake, food, score, gen)
+        draw_window_ai(win, snake, food, scores, gen)
 
 
 def run(config_path):
