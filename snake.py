@@ -123,6 +123,9 @@ except Exception as e:
 blocks = 16
 snakes = 16
 
+# AI Block Enlargement
+block_enlargement = False
+
 # Load Fonts
 STAT_FONT = pygame.font.SysFont("comicsans", 50)
 STAT_FONT_SMALL = pygame.font.SysFont("comicsans", 30)
@@ -140,8 +143,12 @@ class Snake:
     grid_sys = 30
 
     # snake body
-    x = [0]
-    y = [0]
+    x = []
+    y = []
+
+    # snake copy for block enlargement
+    x_copy = []
+    y_copy = []
 
     def __init__(self, x, y, wb, we, hb, he):
         global blocks
@@ -180,11 +187,26 @@ class Snake:
         # snake direction
         self.direction = "Up"
 
+        # Chosen to be enlarged
+        self.chosen = False
+
         # block dimensions
         self.width_end = we
         self.height_end = he
         self.width_begin = wb
         self.height_begin = hb
+
+        # snake copy for block enlargement
+        self.x_copy = [
+                        GAME_WIN_WIDTH / 2,
+                        GAME_WIN_WIDTH / 2,
+                        GAME_WIN_WIDTH / 2,
+                    ]
+        self.y_copy = [
+                        GAME_WIN_HEIGHT / 2,
+                        GAME_WIN_HEIGHT / 2 + 15,
+                        GAME_WIN_HEIGHT / 2 + 30
+                    ]
 
     def move_right(self):
         # if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Left":
@@ -213,21 +235,37 @@ class Snake:
             self.x[n] = self.x[n - 1]
             self.y[n] = self.y[n - 1]
 
+            # move enlargement copy too
+            self.x_copy[n] = self.x_copy[n - 1]
+            self.y_copy[n] = self.y_copy[n - 1]
+
         # if not self.y == 0 and self.direction == "Up": # Force snake not to hit wall
         if self.direction == "Up":
             self.y[0] = self.y[0] - self.vel
+
+            # Add for enlarged copy too
+            self.y_copy[0] = self.y_copy[0] - 15
 
         # if not self.y == GAME_WIN_HEIGHT - 30 and self.direction == "Down":
         if self.direction == "Down":
             self.y[0] = self.y[0] + self.vel
 
+            # Add for enlarged copy too
+            self.y_copy[0] = self.y_copy[0] + 15
+
         # if not self.x == GAME_WIN_WIDTH - 30 and self.direction == "Right":
         if self.direction == "Right":
             self.x[0] = self.x[0] + self.vel
 
+            # Add for enlarged copy too
+            self.x_copy[0] = self.x_copy[0] + 15
+
         # if not self.x == 0 and self.direction == "Left":
         if self.direction == "Left":
             self.x[0] = self.x[0] - self.vel
+
+            # Add for enlarged copy too
+            self.x_copy[0] = self.x_copy[0] - 15
 
     def wall_collision(self):
         return (
@@ -249,6 +287,9 @@ class Snake:
     def get_last_block(self):
         return (self.x[len(self.x) - 1], self.y[len(self.y) - 1])
 
+    def get_last_block_copy(self):
+        return (self.x_copy[len(self.x_copy) - 1], self.y_copy[len(self.y_copy) - 1])
+
     def get_coord_head(self):
         return (self.x[0], self.y[0])
 
@@ -261,9 +302,19 @@ class Snake:
     def get_ratio(self):
         return self.ratio
 
+    def get_chosen(self):
+        return self.chosen
+
+    def set_chosen(self, c):
+        self.chosen = c
+
     def add_block(self, xadd, yadd):
         self.x.append(xadd)
         self.y.append(yadd)
+
+    def add_block_copy(self, xadd, yadd):
+        self.x_copy.append(xadd)
+        self.y_copy.append(yadd)
 
     def dis_to_snake_or_wall(self):
         left = self.width_begin
@@ -309,10 +360,13 @@ class Snake:
 
     def draw(self, win):
         for n in range(len(self.x)):  # x has same length as y
-            pygame.draw.rect(
-                win, (255, 255, 255), (self.x[n], self.y[n], self.grid_sys, self.grid_sys))
+            pygame.draw.rect(win, (255, 255, 255), (self.x[n], self.y[n], self.grid_sys, self.grid_sys))
 
+    def draw_enlarged(self, win):
+        for n in range(len(self.x_copy)):  # x has same length as y
+            pygame.draw.rect(win, (255, 255, 255), (self.x_copy[n], self.y_copy[n], 30, 30))
 
+#### FIX ENLARGEMENT RATIO
 class Food:
     # division of constants to fit into one block of many foods
     ratio = 1
@@ -384,8 +438,10 @@ class Food:
         return (self.x - headx, self.y - heady)
 
     def draw(self, win):
-        pygame.draw.rect(win, (255, 0, 0), (self.x, self.y,
-                         self.grid_sys, self.grid_sys))
+        pygame.draw.rect(win, (255, 0, 0), (self.x, self.y, self.grid_sys, self.grid_sys))
+
+    def draw_enlarged(self, win):
+        pygame.draw.rect(win, (255, 0, 0), (self.x, self.y, 30, 30))
 
 # -----------------------------------------------------------------------------
 # Methods
@@ -624,78 +680,108 @@ def draw_window_ai(win, snake, food, scores, gen):
 
     :return: None
     """
+    global block_enlargement
+
     win.fill((0,0,0))
 
-    
-    tmp_stat_font = None
-    try:
-        tmp_stat_font = pygame.font.SysFont("comicsans", int(50 / snake[0].get_ratio()))
-    except Exception as e:
-        # No more snakes
-        pass
-    
+    if not block_enlargement:
 
-    for i in range(len(snake)):
-
-        snake[i].draw(win)
-
-        food[i].draw(win)
-
-        # block
-        (we, he, wb, hb) = snake[i].get_w_h()
-        
-        # Draw score for each block
-        score = scores[i]
-        text = tmp_stat_font.render(str(score), 1, (255, 255, 255))
-        # Fix here
-        win.blit(text, (we - int(10 / snake[i].get_ratio()) - text.get_width(), hb + int(10 / snake[i].get_ratio())))
-
-        # Transparent rect over bloc if mouse hovers
-        mos_x, mos_y = pygame.mouse.get_pos()
-        if(mos_x > wb and mos_x < we and mos_y > hb and mos_y < he):
-            # Draw Transparency Over Block
-            transparency_size = (we-wb, he-hb)
-            transparency = pygame.Surface(transparency_size)
-            transparency.set_alpha(150)
-            win.blit(transparency, (wb, hb))
+        tmp_stat_font = None
+        try:
+            tmp_stat_font = pygame.font.SysFont("comicsans", int(50 / snake[0].get_ratio()))
+        except Exception as e:
+            # No more snakes
+            pass
         
 
-    # score seperator
-    pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
+        for i in range(len(snake)):
 
-    # blocks seperators
-    for i in range(1, int(math.sqrt(blocks))):
-        pygame.draw.line(
-                            win, 
-                            (255,255,255), 
-                            (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), 0), 
-                            (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), GAME_WIN_HEIGHT)
-                        )
-        pygame.draw.line(
-                            win, 
-                            (255,255,255), 
-                            (0, i * (GAME_WIN_HEIGHT / math.sqrt(blocks))), 
-                            (GAME_WIN_WIDTH, i * (GAME_WIN_HEIGHT / math.sqrt(blocks)))
-                        )
+            snake[i].draw(win)
+
+            food[i].draw(win)
+
+            # block
+            (we, he, wb, hb) = snake[i].get_w_h()
+            
+            # Draw score for each block
+            score = scores[i]
+            text = tmp_stat_font.render(str(score), 1, (255, 255, 255))
+            # Fix here
+            win.blit(text, (we - int(10 / snake[i].get_ratio()) - text.get_width(), hb + int(10 / snake[i].get_ratio())))
+
+            # Transparent rect over bloc if mouse hovers
+            mos_x, mos_y = pygame.mouse.get_pos()
+            if(mos_x > wb and mos_x < we and mos_y > hb and mos_y < he):
+                # Draw Transparency Over Block
+                transparency_size = (we-wb, he-hb)
+                transparency = pygame.Surface(transparency_size)
+                transparency.set_alpha(150)
+                win.blit(transparency, (wb, hb))
+
+                # If mouse was pressed in the box we defined above
+                if pygame.mouse.get_pressed()[0] == 1:
+                   snake[i].set_chosen(True)
+                   # Next frame go to enlarged block
+                   block_enlargement = True
+            
+
+        # information seperator
+        pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
+
+        # blocks seperators
+        for i in range(1, int(math.sqrt(blocks))):
+            pygame.draw.line(
+                                win, 
+                                (255,255,255), 
+                                (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), 0), 
+                                (i * (GAME_WIN_WIDTH / math.sqrt(blocks)), GAME_WIN_HEIGHT)
+                            )
+            pygame.draw.line(
+                                win, 
+                                (255,255,255), 
+                                (0, i * (GAME_WIN_HEIGHT / math.sqrt(blocks))), 
+                                (GAME_WIN_WIDTH, i * (GAME_WIN_HEIGHT / math.sqrt(blocks)))
+                            )
 
 
-    # Draw Total Score
-    text = STAT_FONT.render("Score: " + str(sum_list(scores)), 1, (255, 255, 255))
-    text1 = STAT_FONT.render("Total", 1, (255, 255, 255))
-    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 20 + text1.get_height()))
-    win.blit(text1, (WIN_WIDTH - 10 - text.get_width(), 10))
+        # Draw Total Score
+        text = STAT_FONT.render("Score: " + str(sum_list(scores)), 1, (255, 255, 255))
+        text1 = STAT_FONT.render("Total", 1, (255, 255, 255))
+        win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 20 + text1.get_height()))
+        win.blit(text1, (WIN_WIDTH - 10 - text.get_width(), 10))
 
-    # Draw Current Generation
-    text = STAT_FONT.render("Gen: " + str(gen), 1, (255, 255, 255))
-    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 20 - 2 * text.get_height()))
+        # Draw Current Generation
+        text = STAT_FONT.render("Gen: " + str(gen), 1, (255, 255, 255))
+        win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 20 - 2 * text.get_height()))
 
-    # Draw Current Number of Snakes Alive
-    text = STAT_FONT.render("Alive: " + str(len(snake)), 1, (255, 255, 255))
-    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 10 - text.get_height()))
+        # Draw Current Number of Snakes Alive
+        text = STAT_FONT.render("Alive: " + str(len(snake)), 1, (255, 255, 255))
+        win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 10 - text.get_height()))
 
-    # Return To Menu if Menu Button Pressed / Draw menu button
-    if ai_menu.update():
-        menu()
+        # Return To Menu if Menu Button Pressed / Draw menu button
+        if ai_menu.update():
+            menu()
+
+    # If enlarge block
+    else:
+        chosen_snake = None
+        chosen_food = None
+
+        # Find the chosen snake
+        for i in range(len(snake)):
+            # If the snake was chosen to be enlarged
+            if snake[i].get_chosen() == True: 
+                chosen_snake = snake[i]
+                chosen_food = food[i]
+
+        # If the chosen snake died
+        if chosen_snake == None:
+            block_enlargement = False
+
+        # If the chosen snake is still alive 
+        else:
+            chosen_snake.draw_enlarged(win)
+            chosen_food.draw_enlarged(win)
 
     # Update the Current Display
     pygame.display.update()
@@ -736,6 +822,8 @@ def main_ai(genomes, config):
     block_count = []
     xsaved = []
     ysaved = []
+    x_copy_saved = []
+    y_copy_saved = []
 
     nets = []
     ge = []
@@ -767,6 +855,8 @@ def main_ai(genomes, config):
         block_count.append(0)
         xsaved.append(0)
         ysaved.append(0)
+        x_copy_saved.append(0)
+        y_copy_saved.append(0)
 
         i += 1
 
@@ -826,6 +916,8 @@ def main_ai(genomes, config):
 
             if block_count[x] == 2:
                 snake[x].add_block(xsaved[x], ysaved[x])
+                snake[x].add_block_copy(x_copy_saved[x], y_copy_saved[x])
+
                 block_count[x] = 0
 
             if apple.eaten(snake[x]):
@@ -836,6 +928,7 @@ def main_ai(genomes, config):
                 scores[x] += 1
 
                 (xsaved[x], ysaved[x]) = snake[x].get_last_block()
+                (x_copy_saved[x], y_copy_saved[x]) = snake[x].get_last_block_copy()
                 block_count[x] += 1
 
                 apple.new(snake[x])
