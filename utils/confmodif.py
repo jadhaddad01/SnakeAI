@@ -5,15 +5,15 @@ def conf_file_modify(pop):
 
     config_file.write("[NEAT]\n")
     config_file.write("fitness_criterion     = max\n")
-    config_file.write("fitness_threshold     = 1000\n")
+    config_file.write("fitness_threshold     = 10000\n")
     config_file.write("pop_size              = " + str(pop) + "\n")
     config_file.write("reset_on_extinction   = False\n\n")
 
     config_file.write("[DefaultGenome]\n")
     config_file.write("# node activation options\n")
-    config_file.write("activation_default      = tanh\n")
-    config_file.write("activation_mutate_rate  = 0.0\n")
-    config_file.write("activation_options      = tanh\n\n")
+    config_file.write("activation_default      = softplus\n")
+    config_file.write("activation_mutate_rate  = 0.2\n")
+    config_file.write("activation_options      = tanh sigmoid square\n\n")
 
     config_file.write("# node aggregation options\n")
     config_file.write("aggregation_default     = sum\n")
@@ -42,7 +42,7 @@ def conf_file_modify(pop):
     config_file.write("enabled_mutate_rate     = 0.01\n\n")
 
     config_file.write("feed_forward            = True\n")
-    config_file.write("initial_connection      = unconnected\n\n")
+    config_file.write("initial_connection      = full\n\n")
 
     config_file.write("# node add/remove rates\n")
     config_file.write("node_add_prob           = 0.2\n")

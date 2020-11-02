@@ -117,6 +117,7 @@ return_grid = UI.Button(
 # Generation Count and Image Display
 gen = 0
 neural_net_image = None
+nn_flag = -1
 
 # To Save Human High Score, AI Options Gen. / Pop.
 hs_genopt_popopt = [0, 1000, 16]  # Default if file not found
@@ -151,8 +152,6 @@ STAT_FONT_BIG = pygame.font.SysFont("comicsans", 100)
 # -----------------------------------------------------------------------------
 # Classes
 # -----------------------------------------------------------------------------
-
-
 class Snake:
     # division of constants to fit into one block of many snakes
     ratio = 1
@@ -344,7 +343,6 @@ class Snake:
         for n in range(len(self.x)):  # x has same length as y
             pygame.draw.rect(win, (255, 255, 255), ((self.x[n] - self.width_begin) * self.ratio, (self.y[n] - self.height_begin) * self.ratio, 30, 30))
 
-#### FIX ENLARGEMENT RATIO
 class Food:
     # division of constants to fit into one block of many foods
     ratio = 1
@@ -456,6 +454,42 @@ def sum_list(l):
 
     return s
 
+def neural_network_visualizer(genome, config):
+    """
+    Download and process given neural network into a display-ready image
+
+    :param genomes: chosen genome to be visualized
+    :type genomes: neat.Population
+
+    :param config: configuration of the genome to be visualized
+    :type config: neat.ConfigParameter
+
+    :return: None
+    """
+
+    # Global Variable
+    global neural_net_image
+
+    visualize.draw_net(config, genome, False, fmt='png', filename='best_neural_net')
+    
+    img = Image.open('best_neural_net.png')
+    img = img.convert("RGBA")
+    datas = img.getdata()
+
+    # Remove White Pixels (Background)
+    newData = []
+    for item in datas:
+        if item[0] == 255 and item[1] == 255 and item[2] == 255:
+            newData.append((255, 255, 255, 0))
+        else:
+            newData.append(item)
+
+    img.putdata(newData)
+    img.save("best_neural_net.png", "PNG")
+    
+    # To Display is Ready
+    neural_net_image = pygame.image.load('best_neural_net.png') 
+
 def draw_window_human(win, snake, food, score, pregame):
     """
     Draw game using given parameters (Human Game)
@@ -515,7 +549,6 @@ def draw_window_human(win, snake, food, score, pregame):
 
     # Update the Current Display
     pygame.display.update()
-
 
 def main_human():
     """
@@ -652,13 +685,14 @@ def main_human():
         # -------------------------------------------------------------------------
         draw_window_human(win, snake, food, score, False)
 
-def draw_window_ai(win, snake, food, scores, gen):
+def draw_window_ai(win, snake, food, scores, gen, ge, config):
     """
     Draw game using given parameters (AI Game)
 
     :return: None
     """
     global block_enlargement
+    global nn_flag
 
     win.fill((0,0,0))
 
@@ -741,6 +775,7 @@ def draw_window_ai(win, snake, food, scores, gen):
         chosen_snake = None
         chosen_food = None
         chosen_score = 0
+        index = 0
 
         # Find the chosen snake
         for i in range(len(snake)):
@@ -749,6 +784,7 @@ def draw_window_ai(win, snake, food, scores, gen):
                 chosen_snake = snake[i]
                 chosen_food = food[i]
                 chosen_score = scores[i]
+                index = i
 
         """
         # If the chosen snake died
@@ -759,8 +795,19 @@ def draw_window_ai(win, snake, food, scores, gen):
         # If the chosen snake is still alive 
         # else:
         if chosen_snake != None:
+
+            if(nn_flag != index):
+                nn_flag = index
+
+                ## MAKE NETWORK VISUALIZER
+                neural_network_visualizer(ge[index], config)
+
             chosen_snake.draw_enlarged(win)
             chosen_food.draw_enlarged(win)
+
+        if neural_net_image != None:
+            # Draw Neural Network
+            win.blit(neural_net_image, (10, 10)) # 70 accounts for base
 
         # Draw Current Score
         text = STAT_FONT.render("Score: " + str(chosen_score), 1, (255, 255, 255))
@@ -788,6 +835,9 @@ def main_ai(genomes, config):
     global blocks
     global snakes
     global hs_genopt_popopt
+
+    global neural_net_image
+    global nn_flag
 
     blocks = next_square(hs_genopt_popopt[2])
     snakes = hs_genopt_popopt[2]
@@ -852,6 +902,7 @@ def main_ai(genomes, config):
 
     clock = pygame.time.Clock()
     score = 0
+    nn_flag = -1
     gen += 1
 
     run = True
@@ -859,6 +910,12 @@ def main_ai(genomes, config):
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                if neural_net_image != None:
+                    try:
+                        os.remove('best_neural_net.png')
+                    except Exception as e:
+                        pass
+
                 run = False
                 pygame.quit()
                 quit()
@@ -921,8 +978,7 @@ def main_ai(genomes, config):
 
                 apple.new(snake[x])
 
-        draw_window_ai(win, snake, food, scores, gen)
-
+        draw_window_ai(win, snake, food, scores, gen, ge, config)
 
 def run(config_path):
     """
@@ -974,6 +1030,22 @@ def run(config_path):
 
     # Run Up to [Gen. Option] Generations
     winner = p.run(main_ai, hs_genopt_popopt[1]) # We Save Best Genome
+
+    # -------------------------------------------------------------------------
+    # Visualize Neural Network, Statistics, and Species
+    # -------------------------------------------------------------------------
+    visualize.draw_net(
+        config, 
+        winner, 
+        False, 
+        fmt='png', 
+        filename='best_neural_net', 
+    )
+
+    # Only Draw if More Than 1 Gen
+    if hs_genopt_popopt[1] > 1:
+        visualize.plot_stats(stats, ylog=False, view=False)
+        visualize.plot_species(stats, view=False)
 
     """ Load and Run Saved Checkpoint
     gen = x
