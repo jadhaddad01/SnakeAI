@@ -97,6 +97,23 @@ ai_menu = UI.Button(
     }
 )
 
+# AI Enlargement Return to grid
+return_grid = UI.Button(
+    # Bottom right under Neural Net Image count (SEE DISPLAY FUNCTIONS)
+    x=WIN_WIDTH - 10 - 120,
+    y=GAME_WIN_HEIGHT - 35 - 10,
+    w=120,
+    h=35,
+    param_options={
+        'curve': 0.3,
+        'text': "Back",
+        'font_colour': (255, 255, 255),
+        'background_color': (200, 200, 200),
+        'hover_background_color': (160, 160, 160),
+        'outline_half': False
+    }
+)
+
 # Generation Count and Image Display
 gen = 0
 neural_net_image = None
@@ -146,10 +163,6 @@ class Snake:
     x = []
     y = []
 
-    # snake copy for block enlargement
-    x_copy = []
-    y_copy = []
-
     def __init__(self, x, y, wb, we, hb, he):
         global blocks
 
@@ -196,18 +209,6 @@ class Snake:
         self.width_begin = wb
         self.height_begin = hb
 
-        # snake copy for block enlargement
-        self.x_copy = [
-                        GAME_WIN_WIDTH / 2,
-                        GAME_WIN_WIDTH / 2,
-                        GAME_WIN_WIDTH / 2,
-                    ]
-        self.y_copy = [
-                        GAME_WIN_HEIGHT / 2,
-                        GAME_WIN_HEIGHT / 2 + 15,
-                        GAME_WIN_HEIGHT / 2 + 30
-                    ]
-
     def move_right(self):
         # if self.x[0] % self.grid_sys == 0 and self.y[0] % self.grid_sys == 0 and self.direction != "Left":
         # We want everything to be in the same "grid"
@@ -235,37 +236,21 @@ class Snake:
             self.x[n] = self.x[n - 1]
             self.y[n] = self.y[n - 1]
 
-            # move enlargement copy too
-            self.x_copy[n] = self.x_copy[n - 1]
-            self.y_copy[n] = self.y_copy[n - 1]
-
         # if not self.y == 0 and self.direction == "Up": # Force snake not to hit wall
         if self.direction == "Up":
             self.y[0] = self.y[0] - self.vel
-
-            # Add for enlarged copy too
-            self.y_copy[0] = self.y_copy[0] - 15
 
         # if not self.y == GAME_WIN_HEIGHT - 30 and self.direction == "Down":
         if self.direction == "Down":
             self.y[0] = self.y[0] + self.vel
 
-            # Add for enlarged copy too
-            self.y_copy[0] = self.y_copy[0] + 15
-
         # if not self.x == GAME_WIN_WIDTH - 30 and self.direction == "Right":
         if self.direction == "Right":
             self.x[0] = self.x[0] + self.vel
 
-            # Add for enlarged copy too
-            self.x_copy[0] = self.x_copy[0] + 15
-
         # if not self.x == 0 and self.direction == "Left":
         if self.direction == "Left":
             self.x[0] = self.x[0] - self.vel
-
-            # Add for enlarged copy too
-            self.x_copy[0] = self.x_copy[0] - 15
 
     def wall_collision(self):
         return (
@@ -286,9 +271,6 @@ class Snake:
 
     def get_last_block(self):
         return (self.x[len(self.x) - 1], self.y[len(self.y) - 1])
-
-    def get_last_block_copy(self):
-        return (self.x_copy[len(self.x_copy) - 1], self.y_copy[len(self.y_copy) - 1])
 
     def get_coord_head(self):
         return (self.x[0], self.y[0])
@@ -311,10 +293,6 @@ class Snake:
     def add_block(self, xadd, yadd):
         self.x.append(xadd)
         self.y.append(yadd)
-
-    def add_block_copy(self, xadd, yadd):
-        self.x_copy.append(xadd)
-        self.y_copy.append(yadd)
 
     def dis_to_snake_or_wall(self):
         left = self.width_begin
@@ -363,8 +341,8 @@ class Snake:
             pygame.draw.rect(win, (255, 255, 255), (self.x[n], self.y[n], self.grid_sys, self.grid_sys))
 
     def draw_enlarged(self, win):
-        for n in range(len(self.x_copy)):  # x has same length as y
-            pygame.draw.rect(win, (255, 255, 255), (self.x_copy[n], self.y_copy[n], 30, 30))
+        for n in range(len(self.x)):  # x has same length as y
+            pygame.draw.rect(win, (255, 255, 255), ((self.x[n] - self.width_begin) * self.ratio, (self.y[n] - self.height_begin) * self.ratio, 30, 30))
 
 #### FIX ENLARGEMENT RATIO
 class Food:
@@ -441,7 +419,7 @@ class Food:
         pygame.draw.rect(win, (255, 0, 0), (self.x, self.y, self.grid_sys, self.grid_sys))
 
     def draw_enlarged(self, win):
-        pygame.draw.rect(win, (255, 0, 0), (self.x, self.y, 30, 30))
+        pygame.draw.rect(win, (255, 0, 0), ((self.x - self.width_begin) * self.ratio, (self.y - self.height_begin) * self.ratio, 30, 30))
 
 # -----------------------------------------------------------------------------
 # Methods
@@ -723,10 +701,6 @@ def draw_window_ai(win, snake, food, scores, gen):
                    snake[i].set_chosen(True)
                    # Next frame go to enlarged block
                    block_enlargement = True
-            
-
-        # information seperator
-        pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
 
         # blocks seperators
         for i in range(1, int(math.sqrt(blocks))):
@@ -766,6 +740,7 @@ def draw_window_ai(win, snake, food, scores, gen):
     else:
         chosen_snake = None
         chosen_food = None
+        chosen_score = 0
 
         # Find the chosen snake
         for i in range(len(snake)):
@@ -773,15 +748,34 @@ def draw_window_ai(win, snake, food, scores, gen):
             if snake[i].get_chosen() == True: 
                 chosen_snake = snake[i]
                 chosen_food = food[i]
+                chosen_score = scores[i]
 
+        """
         # If the chosen snake died
         if chosen_snake == None:
             block_enlargement = False
+        """
 
         # If the chosen snake is still alive 
-        else:
+        # else:
+        if chosen_snake != None:
             chosen_snake.draw_enlarged(win)
             chosen_food.draw_enlarged(win)
+
+        # Draw Current Score
+        text = STAT_FONT.render("Score: " + str(chosen_score), 1, (255, 255, 255))
+        win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+
+        # The human menu has same coordinates for AI enlargement
+        if human_menu.update():
+            menu()
+
+        # Return to grid if pressed
+        if return_grid.update():
+            block_enlargement = False
+
+    # information seperator
+    pygame.draw.line(win, (255,255,255), (GAME_WIN_WIDTH, 0), (GAME_WIN_WIDTH, GAME_WIN_HEIGHT))
 
     # Update the Current Display
     pygame.display.update()
@@ -822,8 +816,6 @@ def main_ai(genomes, config):
     block_count = []
     xsaved = []
     ysaved = []
-    x_copy_saved = []
-    y_copy_saved = []
 
     nets = []
     ge = []
@@ -855,8 +847,6 @@ def main_ai(genomes, config):
         block_count.append(0)
         xsaved.append(0)
         ysaved.append(0)
-        x_copy_saved.append(0)
-        y_copy_saved.append(0)
 
         i += 1
 
@@ -916,7 +906,6 @@ def main_ai(genomes, config):
 
             if block_count[x] == 2:
                 snake[x].add_block(xsaved[x], ysaved[x])
-                snake[x].add_block_copy(x_copy_saved[x], y_copy_saved[x])
 
                 block_count[x] = 0
 
@@ -928,7 +917,6 @@ def main_ai(genomes, config):
                 scores[x] += 1
 
                 (xsaved[x], ysaved[x]) = snake[x].get_last_block()
-                (x_copy_saved[x], y_copy_saved[x]) = snake[x].get_last_block_copy()
                 block_count[x] += 1
 
                 apple.new(snake[x])
