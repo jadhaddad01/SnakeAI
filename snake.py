@@ -485,10 +485,31 @@ def neural_network_visualizer(genome, config):
             newData.append(item)
 
     img.putdata(newData)
+
+    # Resize
+    resize = True
+    basewidth = 200
+    current_t = time.time()
+    while resize:
+        wpercent = (basewidth/float(img.size[0]))
+        hsize = int((float(img.size[1])*float(wpercent)))
+        if hsize < (GAME_WIN_HEIGHT - 200):
+            resize = False
+            img = img.resize((basewidth,hsize), Image.ANTIALIAS)
+            break
+        
+        if current_t - time.time() > 10:
+            break
+
+        basewidth -= 1
+
+
     img.save("best_neural_net.png", "PNG")
     
     # To Display is Ready
     neural_net_image = pygame.image.load('best_neural_net.png') 
+
+    # neural_net_image = Image.open('best_neural_net.png')
 
 def draw_window_human(win, snake, food, score, pregame):
     """
@@ -807,7 +828,7 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
 
         if neural_net_image != None:
             # Draw Neural Network
-            win.blit(neural_net_image, (10, 10)) # 70 accounts for base
+            win.blit(neural_net_image, (GAME_WIN_WIDTH + int((200 - neural_net_image.get_width()) / 2), 100)) # Make sure it's in the middle
 
         # Draw Current Score
         text = STAT_FONT.render("Score: " + str(chosen_score), 1, (255, 255, 255))
