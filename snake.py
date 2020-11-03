@@ -36,13 +36,13 @@ SOFTWARE.
 # Import libraries
 # -----------------------------------------------------------------------------
 # Public Libraries
+import os
 import math
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 import neat
 import time
-import os
 import random
-from random import choice
 import pygame_menu
 import pickle
 from PIL import Image
@@ -119,23 +119,24 @@ gen = 0
 neural_net_image = None
 nn_flag = -1
 
-# To Save Human High Score, AI Options Gen. / Pop.
-hs_genopt_popopt = [0, 1000, 16]  # Default if file not found
+# To Save Human High Score, AI Options Gen. / Pop / back to grid when dead
+hs_genopt_popopt_backgrid = [0, 1000, 16, False]  # Default if file not found
 
-# Open hs_genopt_popopt File
+# Open hs_genopt_popopt_backgrid File
 try:
-    with open(os.path.join("utils", "hs_genopt_popopt.txt"), "rb") as fp:            # Load Pickle
-        hs_genopt_popopt = pickle.load(fp)
+    with open(os.path.join("utils", "hs_genopt_popopt_backgrid.txt"), "rb") as fp:            # Load Pickle
+        hs_genopt_popopt_backgrid = pickle.load(fp)
 
 # If Not Found, Create a New One
 except Exception as e:
-    print("Saved Values File hs_genopt_popopt.txt Not Found. Defaulting to:")
-    print("    - High Score:", hs_genopt_popopt[0])
-    print("    - Generations (AI Options):", hs_genopt_popopt[1])
-    print("    - Population (AI Options):", hs_genopt_popopt[2])
+    print("Saved Values File hs_genopt_popopt_backgrid.txt Not Found. Defaulting to:")
+    print("    - High Score:", hs_genopt_popopt_backgrid[0])
+    print("    - Generations (AI Options):", hs_genopt_popopt_backgrid[1])
+    print("    - Population (AI Options):", hs_genopt_popopt_backgrid[2])
+    print("    - Back to Grid View When Dead (AI Options):", hs_genopt_popopt_backgrid[3])
 
-    with open(os.path.join("utils", "hs_genopt_popopt.txt"), "wb") as fp:            # Save Pickle
-        pickle.dump(hs_genopt_popopt, fp)
+    with open(os.path.join("utils", "hs_genopt_popopt_backgrid.txt"), "wb") as fp:            # Save Pickle
+        pickle.dump(hs_genopt_popopt_backgrid, fp)
 
 # How many blocks there are
 blocks = 16
@@ -561,7 +562,7 @@ def draw_window_human(win, snake, food, score, pregame):
                  2, GAME_WIN_HEIGHT/2 - text.get_height()))
 
         # Saved High Score
-        text = STAT_FONT.render("High Score: " + str(hs_genopt_popopt[0]), 1, (255, 0, 0))
+        text = STAT_FONT.render("High Score: " + str(hs_genopt_popopt_backgrid[0]), 1, (255, 0, 0))
         win.blit(text, (GAME_WIN_WIDTH/2- text.get_width()/2, GAME_WIN_HEIGHT/2 + 100))
 
     # Return To Menu if Menu Button Pressed / Draw menu button
@@ -657,9 +658,9 @@ def main_human():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 # Before Quitting, Save New HighScore [If New Highscore]
-                if(score > hs_genopt_popopt[0]):
-                    with open(os.path.join("utils", "hs_genopt_popopt.txt"), "wb") as fp:            # Save Pickle
-                        pickle.dump(hs_genopt_popopt, fp)
+                if(score > hs_genopt_popopt_backgrid[0]):
+                    with open(os.path.join("utils", "hs_genopt_popopt_backgrid.txt"), "wb") as fp:            # Save Pickle
+                        pickle.dump(hs_genopt_popopt_backgrid, fp)
                 run = False
                 pygame.quit()
                 quit()
@@ -678,10 +679,10 @@ def main_human():
         snake.move()
 
         if snake.wall_collision() or snake.snake_collision():
-            if(score > hs_genopt_popopt[0]):
-                hs_genopt_popopt[0] = score
-                with open(os.path.join("utils", "hs_genopt_popopt.txt"), "wb") as fp:            # Save Pickle
-                    pickle.dump(hs_genopt_popopt, fp)
+            if(score > hs_genopt_popopt_backgrid[0]):
+                hs_genopt_popopt_backgrid[0] = score
+                with open(os.path.join("utils", "hs_genopt_popopt_backgrid.txt"), "wb") as fp:            # Save Pickle
+                    pickle.dump(hs_genopt_popopt_backgrid, fp)
             main_human() # Go "back" to pregame
 
         if block_count == 1:
@@ -807,11 +808,11 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
                 chosen_score = scores[i]
                 index = i
 
-        """
+        
         # If the chosen snake died
-        if chosen_snake == None:
+        if chosen_snake == None and hs_genopt_popopt_backgrid[3]:
             block_enlargement = False
-        """
+        
 
         # If the chosen snake is still alive 
         # else:
@@ -855,13 +856,13 @@ def main_ai(genomes, config):
 
     global blocks
     global snakes
-    global hs_genopt_popopt
+    global hs_genopt_popopt_backgrid
 
     global neural_net_image
     global nn_flag
 
-    blocks = next_square(hs_genopt_popopt[2])
-    snakes = hs_genopt_popopt[2]
+    blocks = next_square(hs_genopt_popopt_backgrid[2])
+    snakes = hs_genopt_popopt_backgrid[2]
 
     # block array for width and height of each block
     width_begin = []
@@ -1013,7 +1014,7 @@ def run(config_path):
     """
 
     # Global Variables
-    global hs_genopt_popopt
+    global hs_genopt_popopt_backgrid
     global gen
 
     # -------------------------------------------------------------------------
@@ -1041,16 +1042,19 @@ def run(config_path):
     """
 
     # Handle Generation Count of 0
-    if hs_genopt_popopt[1] < 1:
+    if hs_genopt_popopt_backgrid[1] < 1:
         print('Generations set to 1 instead of 0.')
-        hs_genopt_popopt[1] = 1
+        hs_genopt_popopt_backgrid[1] = 1
 
     # Save HighScore Gen. Option and Pop. Option with Pickle
-    with open(os.path.join("utils", "hs_genopt_popopt.txt"), "wb") as fp:            # Save Pickle
-        pickle.dump(hs_genopt_popopt, fp)
+    with open(os.path.join("utils", "hs_genopt_popopt_backgrid.txt"), "wb") as fp:            # Save Pickle
+        pickle.dump(hs_genopt_popopt_backgrid, fp)
+
+    # Reset Gen Count
+    gen = 0
 
     # Run Up to [Gen. Option] Generations
-    winner = p.run(main_ai, hs_genopt_popopt[1]) # We Save Best Genome
+    winner = p.run(main_ai, hs_genopt_popopt_backgrid[1]) # We Save Best Genome
 
     # -------------------------------------------------------------------------
     # Visualize Neural Network, Statistics, and Species
@@ -1064,7 +1068,7 @@ def run(config_path):
     )
 
     # Only Draw if More Than 1 Gen
-    if hs_genopt_popopt[1] > 1:
+    if hs_genopt_popopt_backgrid[1] > 1:
         visualize.plot_stats(stats, ylog=False, view=False)
         visualize.plot_species(stats, view=False)
 
@@ -1074,9 +1078,6 @@ def run(config_path):
     p.run(main_ai, 2)
     """
 
-    # Reset Gen Count
-    gen = 0
-
 def start_AI():
     """
     Prepare the artificial intelligence by resetting and setting values and the configuration
@@ -1085,15 +1086,15 @@ def start_AI():
     """
 
     # Global Variable
-    global hs_genopt_popopt
+    global hs_genopt_popopt_backgrid
 
     # Handle Population Count Lower than 2
-    if hs_genopt_popopt[2] < 2:
+    if hs_genopt_popopt_backgrid[2] < 2:
         print('Population set to 2. P.S: The NN needs at least 2 genomes to function properly.')
-        hs_genopt_popopt[2] = 2
+        hs_genopt_popopt_backgrid[2] = 2
 
     # Modify NEAT Configuration File For Population Count
-    confmodif.conf_file_modify(hs_genopt_popopt[2])
+    confmodif.conf_file_modify(hs_genopt_popopt_backgrid[2])
 
     # -------------------------------------------------------------------------
     # Set and Run Configuration Path
@@ -1113,10 +1114,10 @@ def set_val_gen(value):
     """
 
     # Global Variable
-    global hs_genopt_popopt
+    global hs_genopt_popopt_backgrid
 
     # Set Generation Count
-    hs_genopt_popopt[1] = value
+    hs_genopt_popopt_backgrid[1] = value
 
 def set_val_pop(value):
     """
@@ -1129,10 +1130,26 @@ def set_val_pop(value):
     """
 
     # Global Variable
-    global hs_genopt_popopt
+    global hs_genopt_popopt_backgrid
 
     # Set Population Count
-    hs_genopt_popopt[2] = value
+    hs_genopt_popopt_backgrid[2] = value
+
+def set_val_backgrid(_, value):
+    """
+    Saving going back to grid view when dead from options menu
+
+    :param value: value to set
+    :type value: bool
+
+    :return: None
+    """
+
+    # Global Variable
+    global hs_genopt_popopt_backgrid
+
+    # Set Boolean of Back to Grid Setting
+    hs_genopt_popopt_backgrid[3] = value
 
 def menu():
     """
@@ -1142,7 +1159,7 @@ def menu():
     """
 
     # Global Variables
-    global hs_genopt_popopt
+    global hs_genopt_popopt_backgrid
     global FPS
 
     # Menu Theme
@@ -1166,18 +1183,28 @@ def menu():
     # Integer Inputs
     options.add_text_input(
         'Generations : ',
-        default=str(hs_genopt_popopt[1]), # Default number set to gen input of previous AI game
+        default=str(hs_genopt_popopt_backgrid[1]), # Default number set to gen input of previous AI game
         input_type=pygame_menu.locals.INPUT_INT, # Integer inputs only
         valid_chars=valid_chars,
         maxchar=4,
         onchange=set_val_gen # Save input
     )
     options.add_text_input('Population : ', 
-        default=str(hs_genopt_popopt[2]), 
+        default=str(hs_genopt_popopt_backgrid[2]), 
         input_type=pygame_menu.locals.INPUT_INT, 
         valid_chars=valid_chars, 
         maxchar=2, 
         onchange=set_val_pop
+    )
+
+    default_value = 0
+    if hs_genopt_popopt_backgrid[3]:
+        default_value = 1
+
+    options.add_selector('Grid View When Dead : ',
+        [('Off', False), ('On', True)],
+        default=default_value,
+        onchange=set_val_backgrid
     )
 
     # Back Button
