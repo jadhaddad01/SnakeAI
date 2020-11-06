@@ -117,7 +117,6 @@ return_grid = UI.Button(
 # Generation Count and Image Display
 gen = 0
 neural_net_image = None
-nn_flag = -1
 
 # To Save Human High Score, AI Options Gen. / Pop / back to grid when dead
 hs_genopt_popopt_backgrid = [0, 1000, 16, False]  # Default if file not found
@@ -714,7 +713,7 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
     :return: None
     """
     global block_enlargement
-    global nn_flag
+    global neural_net_image
 
     win.fill((0,0,0))
 
@@ -809,8 +808,9 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
                 index = i
 
         
-        # If the chosen snake died
+        # If the chosen snake died and the option is on
         if chosen_snake == None and hs_genopt_popopt_backgrid[3]:
+            neural_net_image = None
             block_enlargement = False
         
 
@@ -818,9 +818,7 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
         # else:
         if chosen_snake != None:
 
-            if(nn_flag != index):
-                nn_flag = index
-
+            if neural_net_image == None:
                 ## MAKE NETWORK VISUALIZER
                 neural_network_visualizer(ge[index], config)
 
@@ -841,6 +839,7 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
 
         # Return to grid if pressed
         if return_grid.update():
+            neural_net_image = None
             block_enlargement = False
 
     # information seperator
@@ -859,7 +858,6 @@ def main_ai(genomes, config):
     global hs_genopt_popopt_backgrid
 
     global neural_net_image
-    global nn_flag
 
     blocks = next_square(hs_genopt_popopt_backgrid[2])
     snakes = hs_genopt_popopt_backgrid[2]
@@ -924,7 +922,6 @@ def main_ai(genomes, config):
 
     clock = pygame.time.Clock()
     score = 0
-    nn_flag = -1
     gen += 1
 
     run = True
