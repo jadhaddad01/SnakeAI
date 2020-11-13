@@ -56,6 +56,10 @@ from utils import UI, confmodif
 pygame.init()
 pygame.font.init()
 
+# Caption and Icon
+pygame.display.set_caption("Snake AI")
+# icon already set to snake by default
+
 # -----------------------------------------------------------------------------
 # Constants and global variables
 # -----------------------------------------------------------------------------
