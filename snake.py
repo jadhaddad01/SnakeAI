@@ -48,7 +48,7 @@ import pickle
 from PIL import Image
 # Utils Folder files
 from utils import UI, confmodif
-# from utils import visualize
+from utils import visualize
 
 # -----------------------------------------------------------------------------
 # Pygame and font initialization
@@ -823,11 +823,11 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
         # else:
         if chosen_snake != None:
 
-            """ MATPLOTLIB PYTHON 3.9 FAIL
+            # """ MATPLOTLIB PYTHON 3.9 FAIL
             if neural_net_image == None:
                 ## MAKE NETWORK VISUALIZER
                 neural_network_visualizer(ge[index], config)
-            """
+            # """
 
             chosen_snake.draw_enlarged(win)
             chosen_food.draw_enlarged(win)
@@ -1063,7 +1063,7 @@ def run(config_path):
     # -------------------------------------------------------------------------
     # Visualize Neural Network, Statistics, and Species
     # -------------------------------------------------------------------------
-    """ MATPLOTLIB PYTHON 3.9 FAIL
+    # """ MATPLOTLIB PYTHON 3.9 FAIL
     visualize.draw_net(
         config, 
         winner, 
@@ -1077,7 +1077,7 @@ def run(config_path):
         visualize.plot_stats(stats, ylog=False, view=False)
         visualize.plot_species(stats, view=False)
 
-    """
+    # """
 
     """ Load and Run Saved Checkpoint
     gen = x
@@ -1250,4 +1250,5 @@ def menu():
 # -----------------------------------------------------------------------------
 if __name__== "__main__":
     # Run Menu
-    menu()
+    # menu()
+    start_AI()
