@@ -792,9 +792,10 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
         text = STAT_FONT.render("Alive: " + str(len(snake)), 1, (255, 255, 255))
         win.blit(text, (WIN_WIDTH - 10 - text.get_width(), GAME_WIN_HEIGHT - 10 - text.get_height()))
 
-        # Return To Menu if Menu Button Pressed / Draw menu button
-        if ai_menu.update():
-            menu()
+        # PYGAME MENU FAIL
+        # # Return To Menu if Menu Button Pressed / Draw menu button
+        # if ai_menu.update():
+        #     menu()
 
     # If enlarge block
     else:
@@ -840,9 +841,10 @@ def draw_window_ai(win, snake, food, scores, gen, ge, config):
         text = STAT_FONT.render("Score: " + str(chosen_score), 1, (255, 255, 255))
         win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
-        # The human menu has same coordinates for AI enlargement
-        if human_menu.update():
-            menu()
+        # PYGAME MENU FAIL
+        # # The human menu has same coordinates for AI enlargement
+        # if human_menu.update():
+        #     menu()
 
         # Return to grid if pressed
         if return_grid.update():
